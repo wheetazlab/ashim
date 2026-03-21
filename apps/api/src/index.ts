@@ -7,8 +7,10 @@ import { env } from "./config.js";
 import { APP_VERSION } from "@stirling-image/shared";
 import { runMigrations } from "./db/migrate.js";
 import { ensureDefaultAdmin, authRoutes, authMiddleware } from "./plugins/auth.js";
+import { registerUpload } from "./plugins/upload.js";
 import { registerStatic } from "./plugins/static.js";
 import { startCleanupCron } from "./lib/cleanup.js";
+import { fileRoutes } from "./routes/files.js";
 
 // Run before anything else
 runMigrations();
@@ -45,11 +47,17 @@ await app.register(swaggerUi, {
   routePrefix: "/api/docs",
 });
 
+// Multipart upload support
+await registerUpload(app);
+
 // Auth middleware (must be registered before routes it protects)
 await authMiddleware(app);
 
 // Auth routes
 await authRoutes(app);
+
+// File upload/download routes
+await fileRoutes(app);
 
 // Health check
 app.get("/api/v1/health", async () => ({
