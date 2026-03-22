@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useFileStore } from "@/stores/file-store";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
+import { ProgressCard } from "@/components/common/progress-card";
 
 type Tab = "basic" | "channels" | "effects";
 type Effect = "none" | "grayscale" | "sepia" | "invert";
@@ -13,7 +14,7 @@ interface ColorSettingsProps {
 
 export function ColorSettings({ toolId }: ColorSettingsProps) {
   const { files } = useFileStore();
-  const { processFiles, processing, error, downloadUrl, originalSize, processedSize } =
+  const { processFiles, processing, error, downloadUrl, originalSize, processedSize, progress } =
     useToolProcessor(toolId);
 
   const [tab, setTab] = useState<Tab>(() => {
@@ -199,14 +200,24 @@ export function ColorSettings({ toolId }: ColorSettingsProps) {
       )}
 
       {/* Process */}
-      <button
-        type="submit"
-        disabled={!hasFile || !hasChanges || processing}
-        className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        {processing && <Loader2 className="h-4 w-4 animate-spin" />}
-        {processing ? "Processing..." : "Apply Adjustments"}
-      </button>
+      {processing ? (
+        <ProgressCard
+          active={processing}
+          phase={progress.phase === "idle" ? "uploading" : progress.phase}
+          label="Adjusting colors"
+          stage={progress.stage}
+          percent={progress.percent}
+          elapsed={progress.elapsed}
+        />
+      ) : (
+        <button
+          type="submit"
+          disabled={!hasFile || !hasChanges || processing}
+          className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          Apply
+        </button>
+      )}
 
       {/* Download */}
       {downloadUrl && (

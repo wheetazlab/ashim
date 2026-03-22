@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useFileStore } from "@/stores/file-store";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
+import { ProgressCard } from "@/components/common/progress-card";
 
 const ASPECT_PRESETS = [
   { label: "1:1", w: 1, h: 1 },
@@ -13,7 +14,7 @@ const ASPECT_PRESETS = [
 
 export function CropSettings() {
   const { files } = useFileStore();
-  const { processFiles, processing, error, downloadUrl, originalSize, processedSize } =
+  const { processFiles, processing, error, downloadUrl, originalSize, processedSize, progress } =
     useToolProcessor("crop");
 
   const [left, setLeft] = useState("0");
@@ -125,14 +126,24 @@ export function CropSettings() {
       )}
 
       {/* Process */}
-      <button
-        type="submit"
-        disabled={!hasFile || !hasSize || processing}
-        className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        {processing && <Loader2 className="h-4 w-4 animate-spin" />}
-        {processing ? "Processing..." : "Crop"}
-      </button>
+      {processing ? (
+        <ProgressCard
+          active={processing}
+          phase={progress.phase === "idle" ? "uploading" : progress.phase}
+          label="Cropping"
+          stage={progress.stage}
+          percent={progress.percent}
+          elapsed={progress.elapsed}
+        />
+      ) : (
+        <button
+          type="submit"
+          disabled={!hasFile || !hasSize || processing}
+          className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          Crop
+        </button>
+      )}
 
       {/* Download */}
       {downloadUrl && (

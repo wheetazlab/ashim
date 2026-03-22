@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { useFileStore } from "@/stores/file-store";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
+import { ProgressCard } from "@/components/common/progress-card";
 
 const OUTPUT_FORMATS = ["jpg", "png", "webp", "avif", "tiff", "gif"] as const;
 const LOSSY_FORMATS = new Set(["jpg", "webp", "avif"]);
 
 export function ConvertSettings() {
   const { files } = useFileStore();
-  const { processFiles, processing, error, downloadUrl, originalSize, processedSize } =
+  const { processFiles, processing, error, downloadUrl, originalSize, processedSize, progress } =
     useToolProcessor("convert");
 
   const [format, setFormat] = useState<string>("png");
@@ -102,14 +103,24 @@ export function ConvertSettings() {
       )}
 
       {/* Process */}
-      <button
-        type="submit"
-        disabled={!hasFile || processing}
-        className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        {processing && <Loader2 className="h-4 w-4 animate-spin" />}
-        {processing ? "Converting..." : `Convert to ${format.toUpperCase()}`}
-      </button>
+      {processing ? (
+        <ProgressCard
+          active={processing}
+          phase={progress.phase === "idle" ? "uploading" : progress.phase}
+          label="Converting"
+          stage={progress.stage}
+          percent={progress.percent}
+          elapsed={progress.elapsed}
+        />
+      ) : (
+        <button
+          type="submit"
+          disabled={!hasFile || processing}
+          className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          Convert
+        </button>
+      )}
 
       {/* Download */}
       {downloadUrl && (

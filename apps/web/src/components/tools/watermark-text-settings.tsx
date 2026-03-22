@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useFileStore } from "@/stores/file-store";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
+import { ProgressCard } from "@/components/common/progress-card";
 
 type Position = "center" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | "tiled";
 
 export function WatermarkTextSettings() {
   const { files } = useFileStore();
-  const { processFiles, processing, error, downloadUrl, originalSize, processedSize } =
+  const { processFiles, processing, error, downloadUrl, originalSize, processedSize, progress } =
     useToolProcessor("watermark-text");
 
   const [text, setText] = useState("Sample Watermark");
@@ -90,14 +91,24 @@ export function WatermarkTextSettings() {
         </div>
       )}
 
-      <button
-        onClick={handleProcess}
-        disabled={!hasFile || processing || !text}
-        className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        {processing && <Loader2 className="h-4 w-4 animate-spin" />}
-        {processing ? "Processing..." : "Add Watermark"}
-      </button>
+      {processing ? (
+        <ProgressCard
+          active={processing}
+          phase={progress.phase === "idle" ? "uploading" : progress.phase}
+          label="Adding watermark"
+          stage={progress.stage}
+          percent={progress.percent}
+          elapsed={progress.elapsed}
+        />
+      ) : (
+        <button
+          onClick={handleProcess}
+          disabled={!hasFile || processing || !text}
+          className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          Add Watermark
+        </button>
+      )}
 
       {downloadUrl && (
         <a href={downloadUrl} download className="w-full py-2.5 rounded-lg border border-primary text-primary font-medium flex items-center justify-center gap-2 hover:bg-primary/5">
