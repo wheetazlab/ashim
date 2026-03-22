@@ -6,7 +6,17 @@ dist/
 *.db-wal
 *.db-shm
 data/
+tmp/
 .env
 .env.local
 .DS_Store
 .playwright-mcp/
+.vite/
+apps/api/data/
+apps/api/tmp/
+apps/web/.vite/
+
+# Screenshots from UI research (not part of the app)
+stirling-pdf-*.png
+settings-*.png
+layout-*.png
