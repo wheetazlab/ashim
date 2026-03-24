@@ -19,7 +19,7 @@ export default defineConfig({
     env: {
       AUTH_ENABLED: "true",
       DEFAULT_USERNAME: "admin",
-      DEFAULT_PASSWORD: "adminpass",
+      DEFAULT_PASSWORD: "Adminpass1",
       DB_PATH: path.join(testDir, "test.db"),
       WORKSPACE_PATH: path.join(testDir, "workspace"),
       MAX_UPLOAD_SIZE_MB: "10",

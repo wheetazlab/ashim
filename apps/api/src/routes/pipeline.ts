@@ -17,6 +17,7 @@ import { validateImageBuffer } from "../lib/file-validation.js";
 import { createWorkspace } from "../lib/workspace.js";
 import { sanitizeFilename } from "../lib/filename.js";
 import { db, schema } from "../db/index.js";
+import { requireAuth, getAuthUser } from "../plugins/auth.js";
 
 /** Schema for a single pipeline step. */
 const pipelineStepSchema = z.object({
@@ -197,6 +198,9 @@ export async function registerPipelineRoutes(app: FastifyInstance): Promise<void
   app.post(
     "/api/v1/pipeline/save",
     async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = requireAuth(request, reply);
+      if (!user) return;
+
       const body = request.body as unknown;
       const result = savePipelineSchema.safeParse(body);
 
@@ -227,6 +231,7 @@ export async function registerPipelineRoutes(app: FastifyInstance): Promise<void
       db.insert(schema.pipelines)
         .values({
           id,
+          userId: user.id,
           name,
           description: description ?? null,
           steps: JSON.stringify(steps),
@@ -250,8 +255,13 @@ export async function registerPipelineRoutes(app: FastifyInstance): Promise<void
    */
   app.get(
     "/api/v1/pipeline/list",
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      const rows = db.select().from(schema.pipelines).all();
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = requireAuth(request, reply);
+      if (!user) return;
+
+      // Users see their own pipelines + legacy pipelines (no owner)
+      const rows = db.select().from(schema.pipelines).all()
+        .filter(row => !row.userId || row.userId === user.id);
 
       const pipelines = rows.map((row) => ({
         id: row.id,
@@ -276,6 +286,9 @@ export async function registerPipelineRoutes(app: FastifyInstance): Promise<void
       request: FastifyRequest<{ Params: { id: string } }>,
       reply: FastifyReply,
     ) => {
+      const user = requireAuth(request, reply);
+      if (!user) return;
+
       const { id } = request.params;
 
       const existing = db
@@ -286,6 +299,11 @@ export async function registerPipelineRoutes(app: FastifyInstance): Promise<void
 
       if (!existing) {
         return reply.status(404).send({ error: "Pipeline not found" });
+      }
+
+      // Only the owner (or admin) can delete; legacy pipelines (no owner) can be deleted by anyone
+      if (existing.userId && existing.userId !== user.id && user.role !== "admin") {
+        return reply.status(403).send({ error: "Not authorized to delete this pipeline" });
       }
 
       db.delete(schema.pipelines)

@@ -1,4 +1,4 @@
-import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { randomBytes, scrypt, timingSafeEqual, createHash } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import { promisify } from "node:util";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
@@ -37,6 +37,34 @@ export async function verifyPassword(
   const storedBuf = Buffer.from(hash, "hex");
   if (derived.length !== storedBuf.length) return false;
   return timingSafeEqual(derived, storedBuf);
+}
+
+/**
+ * Compute a fast lookup prefix for an API key.
+ * Uses SHA-256 (not scrypt) so lookups are O(1) instead of O(n).
+ */
+export function computeKeyPrefix(rawKey: string): string {
+  return createHash("sha256").update(rawKey).digest("hex").slice(0, 16);
+}
+
+const PASSWORD_RULES = "Password must be at least 8 characters with uppercase, lowercase, and a number";
+
+function validatePasswordStrength(password: string): string | null {
+  if (password.length < 8) return PASSWORD_RULES;
+  if (!/[A-Z]/.test(password)) return PASSWORD_RULES;
+  if (!/[a-z]/.test(password)) return PASSWORD_RULES;
+  if (!/[0-9]/.test(password)) return PASSWORD_RULES;
+  return null;
+}
+
+function validateUsername(username: string): string | null {
+  if (username.length < 3 || username.length > 50) {
+    return "Username must be between 3 and 50 characters";
+  }
+  if (!/^[a-zA-Z0-9_.\-]+$/.test(username)) {
+    return "Username can only contain letters, numbers, dots, hyphens, and underscores";
+  }
+  return null;
 }
 
 // ── Request helpers ───────────────────────────────────────────────
@@ -90,11 +118,11 @@ export async function ensureDefaultAdmin(): Promise<void> {
       username: env.DEFAULT_USERNAME,
       passwordHash,
       role: "admin",
-      mustChangePassword: false,
+      mustChangePassword: true,
     })
     .run();
 
-  console.log(`Default admin user '${env.DEFAULT_USERNAME}' created`);
+  console.log(`Default admin user '${env.DEFAULT_USERNAME}' created — password change required on first login`);
 }
 
 // ── Auth routes ────────────────────────────────────────────────────
@@ -215,9 +243,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    if (body.newPassword.length < 8) {
+    const pwError = validatePasswordStrength(body.newPassword);
+    if (pwError) {
       return reply.status(400).send({
-        error: "New password must be at least 8 characters",
+        error: pwError,
         code: "VALIDATION_ERROR",
       });
     }
@@ -252,6 +281,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         db.delete(schema.sessions).where(eq(schema.sessions.id, s.id)).run();
       }
     }
+
+    // Revoke all API keys — if credentials were compromised, keys must be rotated too
+    db.delete(schema.apiKeys).where(eq(schema.apiKeys.userId, authUser.id)).run();
 
     return reply.send({ ok: true });
   });
@@ -297,9 +329,18 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    if (body.password.length < 8) {
+    const usernameError = validateUsername(body.username);
+    if (usernameError) {
       return reply.status(400).send({
-        error: "Password must be at least 8 characters",
+        error: usernameError,
+        code: "VALIDATION_ERROR",
+      });
+    }
+
+    const registerPwError = validatePasswordStrength(body.password);
+    if (registerPwError) {
+      return reply.status(400).send({
+        error: registerPwError,
         code: "VALIDATION_ERROR",
       });
     }
@@ -451,15 +492,30 @@ export async function authMiddleware(app: FastifyInstance): Promise<void> {
 
         // Try API key authentication if token has si_ prefix
         if (token.startsWith("si_")) {
-          const apiKeys = db.select().from(schema.apiKeys).all();
-          for (const key of apiKeys) {
+          const prefix = computeKeyPrefix(token);
+          // Lookup by prefix (O(1) instead of scanning all keys)
+          const candidates = db.select().from(schema.apiKeys)
+            .where(eq(schema.apiKeys.keyPrefix, prefix))
+            .all();
+          // Fall back to full scan for legacy keys without a prefix
+          const keysToCheck = candidates.length > 0
+            ? candidates
+            : db.select().from(schema.apiKeys).all().filter(k => !k.keyPrefix);
+          for (const key of keysToCheck) {
             const matches = await verifyPassword(token, key.keyHash);
             if (matches) {
-              // Update lastUsedAt
-              db.update(schema.apiKeys)
-                .set({ lastUsedAt: new Date() })
-                .where(eq(schema.apiKeys.id, key.id))
-                .run();
+              // Backfill prefix for legacy keys
+              if (!key.keyPrefix) {
+                db.update(schema.apiKeys)
+                  .set({ keyPrefix: prefix, lastUsedAt: new Date() })
+                  .where(eq(schema.apiKeys.id, key.id))
+                  .run();
+              } else {
+                db.update(schema.apiKeys)
+                  .set({ lastUsedAt: new Date() })
+                  .where(eq(schema.apiKeys.id, key.id))
+                  .run();
+              }
               // Load the user
               const apiUser = db.select().from(schema.users).where(eq(schema.users.id, key.userId)).get();
               if (apiUser) {

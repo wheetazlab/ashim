@@ -141,7 +141,7 @@ export async function loginAsAdmin(
     url: "/api/auth/login",
     payload: {
       username: "admin",
-      password: "adminpass",
+      password: "Adminpass1",
     },
   });
   const body = JSON.parse(res.body);

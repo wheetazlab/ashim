@@ -1,6 +1,8 @@
 import { readdir, stat, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { mkdirSync } from "node:fs";
+import { lt } from "drizzle-orm";
+import { db, schema } from "../db/index.js";
 import { env } from "../config.js";
 
 export function startCleanupCron() {
@@ -37,10 +39,25 @@ export function startCleanupCron() {
     }
   };
 
+  // Purge expired sessions from the database
+  const purgeExpiredSessions = () => {
+    try {
+      const now = new Date();
+      const result = db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, now)).run();
+      if (result.changes > 0) {
+        console.log(`Cleanup: purged ${result.changes} expired sessions`);
+      }
+    } catch (err) {
+      console.error("Session cleanup error:", err);
+    }
+  };
+
   // Run on startup
   cleanup();
+  purgeExpiredSessions();
 
   // Schedule recurring cleanup
   setInterval(cleanup, intervalMs);
+  setInterval(purgeExpiredSessions, 60 * 60 * 1000); // Hourly
   console.log(`Cleanup scheduled: every ${env.CLEANUP_INTERVAL_MINUTES}m, max age ${env.FILE_MAX_AGE_HOURS}h`);
 }

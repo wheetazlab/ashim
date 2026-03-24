@@ -9,7 +9,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { eq, and } from "drizzle-orm";
 import { db, schema } from "../db/index.js";
-import { hashPassword, requireAuth } from "../plugins/auth.js";
+import { hashPassword, computeKeyPrefix, requireAuth } from "../plugins/auth.js";
 
 export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/v1/api-keys — Generate a new API key
@@ -32,6 +32,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
       // Generate a raw API key: "si_" prefix + 48 random bytes as hex
       const rawKey = `si_${randomBytes(48).toString("hex")}`;
       const keyHash = await hashPassword(rawKey);
+      const keyPrefix = computeKeyPrefix(rawKey);
       const id = randomUUID();
 
       db.insert(schema.apiKeys)
@@ -39,6 +40,7 @@ export async function apiKeyRoutes(app: FastifyInstance): Promise<void> {
           id,
           userId: user.id,
           keyHash,
+          keyPrefix,
           name,
         })
         .run();

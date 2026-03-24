@@ -55,7 +55,7 @@ describe("Auth endpoints", () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "admin", password: "adminpass" },
+        payload: { username: "admin", password: "Adminpass1" },
       });
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.body);
@@ -89,7 +89,7 @@ describe("Auth endpoints", () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { password: "adminpass" },
+        payload: { password: "Adminpass1" },
       });
       expect(res.statusCode).toBe(400);
     });
@@ -137,7 +137,7 @@ describe("Auth endpoints", () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "a".repeat(10_000), password: "adminpass" },
+        payload: { username: "a".repeat(10_000), password: "Adminpass1" },
       });
       expect(res.statusCode).toBe(401);
     });
@@ -146,7 +146,7 @@ describe("Auth endpoints", () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "\u0000admin", password: "adminpass" },
+        payload: { username: "\u0000admin", password: "Adminpass1" },
       });
       expect(res.statusCode).toBe(401);
     });
@@ -210,7 +210,7 @@ describe("Auth endpoints", () => {
       const loginRes = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "admin", password: "adminpass" },
+        payload: { username: "admin", password: "Adminpass1" },
       });
       const freshToken = JSON.parse(loginRes.body).token;
 
@@ -250,7 +250,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { username: "changepw_user", password: "original1234", role: "user" },
+        payload: { username: "changepw_user", password: "Original1234", role: "user" },
       });
       expect(regRes.statusCode).toBe(201);
 
@@ -258,7 +258,7 @@ describe("Auth endpoints", () => {
       const loginRes = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "changepw_user", password: "original1234" },
+        payload: { username: "changepw_user", password: "Original1234" },
       });
       const userToken = JSON.parse(loginRes.body).token;
 
@@ -267,7 +267,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/change-password",
         headers: { authorization: `Bearer ${userToken}` },
-        payload: { currentPassword: "original1234", newPassword: "newpassword99" },
+        payload: { currentPassword: "Original1234", newPassword: "Newpassword99" },
       });
       expect(changeRes.statusCode).toBe(200);
       expect(JSON.parse(changeRes.body).ok).toBe(true);
@@ -276,7 +276,7 @@ describe("Auth endpoints", () => {
       const oldLoginRes = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "changepw_user", password: "original1234" },
+        payload: { username: "changepw_user", password: "Original1234" },
       });
       expect(oldLoginRes.statusCode).toBe(401);
 
@@ -284,7 +284,7 @@ describe("Auth endpoints", () => {
       const newLoginRes = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "changepw_user", password: "newpassword99" },
+        payload: { username: "changepw_user", password: "Newpassword99" },
       });
       expect(newLoginRes.statusCode).toBe(200);
     });
@@ -294,7 +294,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/change-password",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { currentPassword: "wrong_password_here", newPassword: "newpass1234" },
+        payload: { currentPassword: "wrong_password_here", newPassword: "Newpass1234" },
       });
       expect(res.statusCode).toBe(401);
       expect(JSON.parse(res.body).code).toBe("INVALID_PASSWORD");
@@ -305,7 +305,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/change-password",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { currentPassword: "adminpass", newPassword: "short" },
+        payload: { currentPassword: "Adminpass1", newPassword: "short" },
       });
       expect(res.statusCode).toBe(400);
       expect(JSON.parse(res.body).code).toBe("VALIDATION_ERROR");
@@ -316,7 +316,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/change-password",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { currentPassword: "adminpass" },
+        payload: { currentPassword: "Adminpass1" },
       });
       expect(res.statusCode).toBe(400);
     });
@@ -325,7 +325,7 @@ describe("Auth endpoints", () => {
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/change-password",
-        payload: { currentPassword: "adminpass", newPassword: "newpass1234" },
+        payload: { currentPassword: "Adminpass1", newPassword: "Newpass1234" },
       });
       expect(res.statusCode).toBe(401);
     });
@@ -338,7 +338,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { username: "newuser1", password: "password1234", role: "user" },
+        payload: { username: "newuser1", password: "Password1234", role: "user" },
       });
       expect(res.statusCode).toBe(201);
       const body = JSON.parse(res.body);
@@ -353,14 +353,14 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { username: "duplicate_user", password: "password1234" },
+        payload: { username: "duplicate_user", password: "Password1234" },
       });
       // Second attempt
       const res = await app.inject({
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { username: "duplicate_user", password: "differentpass1" },
+        payload: { username: "duplicate_user", password: "Differentpass1" },
       });
       expect(res.statusCode).toBe(409);
       expect(JSON.parse(res.body).code).toBe("CONFLICT");
@@ -381,7 +381,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { password: "password1234" },
+        payload: { password: "Password1234" },
       });
       expect(res.statusCode).toBe(400);
     });
@@ -392,13 +392,13 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { username: "regular_user", password: "password1234", role: "user" },
+        payload: { username: "regular_user", password: "Password1234", role: "user" },
       });
       // Log in as regular user
       const loginRes = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "regular_user", password: "password1234" },
+        payload: { username: "regular_user", password: "Password1234" },
       });
       const userToken = JSON.parse(loginRes.body).token;
 
@@ -407,7 +407,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${userToken}` },
-        payload: { username: "sneaky_user", password: "password1234" },
+        payload: { username: "sneaky_user", password: "Password1234" },
       });
       expect(res.statusCode).toBe(403);
     });
@@ -417,7 +417,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { username: "badrole_user", password: "password1234", role: "superadmin" },
+        payload: { username: "badrole_user", password: "Password1234", role: "superadmin" },
       });
       expect(res.statusCode).toBe(201);
       expect(JSON.parse(res.body).role).toBe("user");
@@ -450,7 +450,7 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { username: "doomed_user", password: "password1234" },
+        payload: { username: "doomed_user", password: "Password1234" },
       });
       const userId = JSON.parse(regRes.body).id;
 
@@ -466,7 +466,7 @@ describe("Auth endpoints", () => {
       const loginRes = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "doomed_user", password: "password1234" },
+        payload: { username: "doomed_user", password: "Password1234" },
       });
       expect(loginRes.statusCode).toBe(401);
     });
@@ -486,12 +486,12 @@ describe("Auth endpoints", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { username: "nonadmin_deleter", password: "password1234", role: "user" },
+        payload: { username: "nonadmin_deleter", password: "Password1234", role: "user" },
       });
       const loginRes = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "nonadmin_deleter", password: "password1234" },
+        payload: { username: "nonadmin_deleter", password: "Password1234" },
       });
       const userToken = JSON.parse(loginRes.body).token;
 
@@ -1340,12 +1340,12 @@ describe("Settings", () => {
         method: "POST",
         url: "/api/auth/register",
         headers: { authorization: `Bearer ${adminToken}` },
-        payload: { username: "settings_user", password: "password1234", role: "user" },
+        payload: { username: "settings_user", password: "Password1234", role: "user" },
       });
       const loginRes = await app.inject({
         method: "POST",
         url: "/api/auth/login",
-        payload: { username: "settings_user", password: "password1234" },
+        payload: { username: "settings_user", password: "Password1234" },
       });
       const userToken = JSON.parse(loginRes.body).token;
 
@@ -2727,7 +2727,7 @@ describe("Edge cases & adversarial inputs", () => {
       method: "POST",
       url: "/api/auth/login",
       headers: { "content-type": "application/json" },
-      payload: JSON.stringify(["admin", "adminpass"]),
+      payload: JSON.stringify(["admin", "Adminpass1"]),
     });
     expect(res.statusCode).toBe(400);
   });

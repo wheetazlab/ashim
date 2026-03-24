@@ -40,6 +40,7 @@ export const apiKeys = sqliteTable("api_keys", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   keyHash: text("key_hash").notNull(),
+  keyPrefix: text("key_prefix"),
   name: text("name").notNull().default("Default API Key"),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   lastUsedAt: integer("last_used_at", { mode: "timestamp" }),
@@ -47,6 +48,7 @@ export const apiKeys = sqliteTable("api_keys", {
 
 export const pipelines = sqliteTable("pipelines", {
   id: text("id").primaryKey(),
+  userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   description: text("description"),
   steps: text("steps").notNull(), // JSON array of { toolId, settings }
