@@ -1,10 +1,9 @@
-import { randomBytes, scrypt, timingSafeEqual, createHash } from "node:crypto";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { eq } from "drizzle-orm";
-import { db, schema } from "../db/index.js";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { env } from "../config.js";
+import { db, schema } from "../db/index.js";
 
 const scryptAsync = promisify(scrypt);
 
@@ -15,6 +14,8 @@ export interface AuthUser {
   username: string;
   role: "admin" | "user";
 }
+
+const MAX_USERS = 5;
 
 // ── Password hashing ──────────────────────────────────────────────
 
@@ -27,10 +28,7 @@ export async function hashPassword(password: string): Promise<string> {
   return `${salt}:${derived.toString("hex")}`;
 }
 
-export async function verifyPassword(
-  password: string,
-  stored: string,
-): Promise<boolean> {
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const [salt, hash] = stored.split(":");
   if (!salt || !hash) return false;
   const derived = (await scryptAsync(password, salt, KEY_LENGTH)) as Buffer;
@@ -47,7 +45,8 @@ export function computeKeyPrefix(rawKey: string): string {
   return createHash("sha256").update(rawKey).digest("hex").slice(0, 16);
 }
 
-const PASSWORD_RULES = "Password must be at least 8 characters with uppercase, lowercase, and a number";
+const PASSWORD_RULES =
+  "Password must be at least 8 characters with uppercase, lowercase, and a number";
 
 function validatePasswordStrength(password: string): string | null {
   if (password.length < 8) return PASSWORD_RULES;
@@ -61,7 +60,7 @@ function validateUsername(username: string): string | null {
   if (username.length < 3 || username.length > 50) {
     return "Username must be between 3 and 50 characters";
   }
-  if (!/^[a-zA-Z0-9_.\-]+$/.test(username)) {
+  if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
     return "Username can only contain letters, numbers, dots, hyphens, and underscores";
   }
   return null;
@@ -122,58 +121,81 @@ export async function ensureDefaultAdmin(): Promise<void> {
     })
     .run();
 
-  console.log(`Default admin user '${env.DEFAULT_USERNAME}' created — password change required on first login`);
+  console.log(
+    `Default admin user '${env.DEFAULT_USERNAME}' created — password change required on first login`,
+  );
+}
+
+// ── Login attempt limit ──────────────────────────────────────────
+
+const DEFAULT_LOGIN_ATTEMPT_LIMIT = 5;
+
+function getLoginAttemptLimit(): number {
+  const row = db
+    .select()
+    .from(schema.settings)
+    .where(eq(schema.settings.key, "loginAttemptLimit"))
+    .get();
+  if (row) {
+    const parsed = parseInt(row.value, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return DEFAULT_LOGIN_ATTEMPT_LIMIT;
 }
 
 // ── Auth routes ────────────────────────────────────────────────────
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/auth/login
-  app.post("/api/auth/login", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (request: FastifyRequest, reply: FastifyReply) => {
-    const body = request.body as { username?: string; password?: string } | null;
+  app.post(
+    "/api/auth/login",
+    { config: { rateLimit: { max: getLoginAttemptLimit, timeWindow: "1 minute" } } },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body = request.body as { username?: string; password?: string } | null;
 
-    if (!body?.username || !body?.password) {
-      return reply.status(400).send({ error: "Username and password are required" });
-    }
+      if (!body?.username || !body?.password) {
+        return reply.status(400).send({ error: "Username and password are required" });
+      }
 
-    const user = db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.username, body.username))
-      .get();
+      const user = db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.username, body.username))
+        .get();
 
-    if (!user) {
-      return reply.status(401).send({ error: "Invalid credentials" });
-    }
+      if (!user) {
+        return reply.status(401).send({ error: "Invalid credentials" });
+      }
 
-    const valid = await verifyPassword(body.password, user.passwordHash);
-    if (!valid) {
-      return reply.status(401).send({ error: "Invalid credentials" });
-    }
+      const valid = await verifyPassword(body.password, user.passwordHash);
+      if (!valid) {
+        return reply.status(401).send({ error: "Invalid credentials" });
+      }
 
-    // Create session
-    const token = createSessionToken();
-    const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
+      // Create session
+      const token = createSessionToken();
+      const expiresAt = new Date(Date.now() + SESSION_DURATION_MS);
 
-    db.insert(schema.sessions)
-      .values({
-        id: token,
-        userId: user.id,
-        expiresAt,
-      })
-      .run();
+      db.insert(schema.sessions)
+        .values({
+          id: token,
+          userId: user.id,
+          expiresAt,
+        })
+        .run();
 
-    return reply.send({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        mustChangePassword: user.mustChangePassword,
-      },
-      expiresAt: expiresAt.toISOString(),
-    });
-  });
+      return reply.send({
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          mustChangePassword: user.mustChangePassword,
+        },
+        expiresAt: expiresAt.toISOString(),
+      });
+    },
+  );
 
   // POST /api/auth/logout
   app.post("/api/auth/logout", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -191,11 +213,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: "No session token provided" });
     }
 
-    const session = db
-      .select()
-      .from(schema.sessions)
-      .where(eq(schema.sessions.id, token))
-      .get();
+    const session = db.select().from(schema.sessions).where(eq(schema.sessions.id, token)).get();
 
     if (!session || session.expiresAt < new Date()) {
       // Clean up expired session if it exists
@@ -205,11 +223,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(401).send({ error: "Session expired or invalid" });
     }
 
-    const user = db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, session.userId))
-      .get();
+    const user = db.select().from(schema.users).where(eq(schema.users.id, session.userId)).get();
 
     if (!user) {
       return reply.status(401).send({ error: "User not found" });
@@ -251,11 +265,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const user = db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, authUser.id))
-      .get();
+    const user = db.select().from(schema.users).where(eq(schema.users.id, authUser.id)).get();
 
     if (!user) {
       return reply.status(404).send({ error: "User not found", code: "NOT_FOUND" });
@@ -263,7 +273,9 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const valid = await verifyPassword(body.currentPassword, user.passwordHash);
     if (!valid) {
-      return reply.status(401).send({ error: "Current password is incorrect", code: "INVALID_PASSWORD" });
+      return reply
+        .status(401)
+        .send({ error: "Current password is incorrect", code: "INVALID_PASSWORD" });
     }
 
     const newHash = await hashPassword(body.newPassword);
@@ -275,7 +287,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     // Invalidate all other sessions for this user
     const currentToken = extractToken(request);
-    const allSessions = db.select().from(schema.sessions).where(eq(schema.sessions.userId, authUser.id)).all();
+    const allSessions = db
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.userId, authUser.id))
+      .all();
     for (const s of allSessions) {
       if (s.id !== currentToken) {
         db.delete(schema.sessions).where(eq(schema.sessions.id, s.id)).run();
@@ -298,6 +314,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         id: schema.users.id,
         username: schema.users.username,
         role: schema.users.role,
+        team: schema.users.team,
         createdAt: schema.users.createdAt,
       })
       .from(schema.users)
@@ -308,6 +325,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         ...u,
         createdAt: u.createdAt.toISOString(),
       })),
+      maxUsers: MAX_USERS,
     });
   });
 
@@ -347,6 +365,36 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
     const role = body.role === "admin" ? "admin" : "user";
 
+    // Look up Default team ID
+    const defaultTeam = db
+      .select()
+      .from(schema.teams)
+      .where(eq(schema.teams.name, "Default"))
+      .get();
+    const teamId = (body as { team?: string }).team || defaultTeam?.id || "default-team-00000000";
+
+    // If a specific team was provided, validate it exists
+    if ((body as { team?: string }).team) {
+      const teamExists = db
+        .select()
+        .from(schema.teams)
+        .where(eq(schema.teams.id, (body as { team?: string }).team!))
+        .get();
+      if (!teamExists)
+        return reply.status(400).send({ error: "Team not found", code: "VALIDATION_ERROR" });
+    }
+
+    const team = teamId;
+
+    // Check user limit
+    const userCount = db.select().from(schema.users).all().length;
+    if (userCount >= MAX_USERS) {
+      return reply.status(403).send({
+        error: `User limit reached (${MAX_USERS} max)`,
+        code: "USER_LIMIT_REACHED",
+      });
+    }
+
     // Check for duplicate username
     const existing = db
       .select()
@@ -370,6 +418,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         username: body.username,
         passwordHash,
         role,
+        team,
         mustChangePassword: true,
       })
       .run();
@@ -378,16 +427,111 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       id,
       username: body.username,
       role,
+      team,
     });
   });
+
+  // PUT /api/auth/users/:id (admin only — update role/team)
+  app.put(
+    "/api/auth/users/:id",
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const admin = requireAdmin(request, reply);
+      if (!admin) return;
+
+      const { id } = request.params;
+      const body = request.body as { role?: string; team?: string } | null;
+
+      const user = db.select().from(schema.users).where(eq(schema.users.id, id)).get();
+
+      if (!user) {
+        return reply.status(404).send({ error: "User not found", code: "NOT_FOUND" });
+      }
+
+      const updates: { role?: "admin" | "user"; team?: string; updatedAt: Date } = {
+        updatedAt: new Date(),
+      };
+
+      if (body?.role === "admin" || body?.role === "user") {
+        // Prevent removing your own admin role
+        if (id === admin.id && body.role !== "admin") {
+          return reply.status(400).send({
+            error: "Cannot remove your own admin role",
+            code: "SELF_DEMOTE",
+          });
+        }
+        updates.role = body.role;
+      }
+
+      if (typeof body?.team === "string" && body.team.trim()) {
+        const teamExists = db
+          .select()
+          .from(schema.teams)
+          .where(eq(schema.teams.id, body.team.trim()))
+          .get();
+        if (!teamExists) {
+          return reply.status(400).send({ error: "Team not found", code: "VALIDATION_ERROR" });
+        }
+        updates.team = body.team.trim();
+      }
+
+      db.update(schema.users).set(updates).where(eq(schema.users.id, id)).run();
+
+      return reply.send({ ok: true });
+    },
+  );
+
+  // POST /api/auth/users/:id/reset-password (admin only)
+  app.post(
+    "/api/auth/users/:id/reset-password",
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const admin = requireAdmin(request, reply);
+      if (!admin) return;
+
+      const { id } = request.params;
+      const body = request.body as { newPassword?: string } | null;
+
+      if (!body?.newPassword) {
+        return reply.status(400).send({
+          error: "New password is required",
+          code: "VALIDATION_ERROR",
+        });
+      }
+
+      const pwError = validatePasswordStrength(body.newPassword);
+      if (pwError) {
+        return reply.status(400).send({
+          error: pwError,
+          code: "VALIDATION_ERROR",
+        });
+      }
+
+      const user = db.select().from(schema.users).where(eq(schema.users.id, id)).get();
+
+      if (!user) {
+        return reply.status(404).send({ error: "User not found", code: "NOT_FOUND" });
+      }
+
+      const newHash = await hashPassword(body.newPassword);
+
+      db.update(schema.users)
+        .set({ passwordHash: newHash, mustChangePassword: true, updatedAt: new Date() })
+        .where(eq(schema.users.id, id))
+        .run();
+
+      // Invalidate all sessions for this user
+      db.delete(schema.sessions).where(eq(schema.sessions.userId, id)).run();
+
+      // Revoke all API keys
+      db.delete(schema.apiKeys).where(eq(schema.apiKeys.userId, id)).run();
+
+      return reply.send({ ok: true });
+    },
+  );
 
   // DELETE /api/auth/users/:id (admin only, can't delete self)
   app.delete(
     "/api/auth/users/:id",
-    async (
-      request: FastifyRequest<{ Params: { id: string } }>,
-      reply: FastifyReply,
-    ) => {
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
       const admin = requireAdmin(request, reply);
       if (!admin) return;
 
@@ -400,25 +544,17 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
         });
       }
 
-      const user = db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, id))
-        .get();
+      const user = db.select().from(schema.users).where(eq(schema.users.id, id)).get();
 
       if (!user) {
         return reply.status(404).send({ error: "User not found", code: "NOT_FOUND" });
       }
 
       // Delete associated sessions
-      db.delete(schema.sessions)
-        .where(eq(schema.sessions.userId, id))
-        .run();
+      db.delete(schema.sessions).where(eq(schema.sessions.userId, id)).run();
 
       // Delete the user (cascades to api_keys via FK)
-      db.delete(schema.users)
-        .where(eq(schema.users.id, id))
-        .run();
+      db.delete(schema.users).where(eq(schema.users.id, id)).run();
 
       return reply.send({ ok: true });
     },
@@ -438,7 +574,13 @@ function extractToken(request: FastifyRequest): string | null {
 
 // ── Auth middleware ────────────────────────────────────────────────
 
-const PUBLIC_PATHS = ["/api/v1/health", "/api/v1/config/", "/api/auth/", "/api/v1/download/", "/api/v1/jobs/"];
+const PUBLIC_PATHS = [
+  "/api/v1/health",
+  "/api/v1/config/",
+  "/api/auth/",
+  "/api/v1/download/",
+  "/api/v1/jobs/",
+];
 
 function isPublicRoute(url: string): boolean {
   // Non-API routes are public (SPA static files — auth is handled client-side)
@@ -448,122 +590,121 @@ function isPublicRoute(url: string): boolean {
 }
 
 export async function authMiddleware(app: FastifyInstance): Promise<void> {
-  app.addHook(
-    "preHandler",
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      // When auth is disabled, attach the first admin user so requireAuth/requireAdmin pass
-      if (!env.AUTH_ENABLED) {
-        const adminUser = db
+  app.addHook("preHandler", async (request: FastifyRequest, reply: FastifyReply) => {
+    // When auth is disabled, attach the first admin user so requireAuth/requireAdmin pass
+    if (!env.AUTH_ENABLED) {
+      const adminUser = db.select().from(schema.users).where(eq(schema.users.role, "admin")).get();
+      if (adminUser) {
+        (request as FastifyRequest & { user?: AuthUser }).user = {
+          id: adminUser.id,
+          username: adminUser.username,
+          role: "admin",
+        };
+      }
+      return;
+    }
+
+    const isPublic = isPublicRoute(request.url);
+
+    const token = extractToken(request);
+    if (!token) {
+      // Public routes don't require a token
+      if (isPublic) return;
+      return reply.status(401).send({ error: "Authentication required" });
+    }
+
+    const session = db.select().from(schema.sessions).where(eq(schema.sessions.id, token)).get();
+
+    if (!session || session.expiresAt < new Date()) {
+      if (session) {
+        db.delete(schema.sessions).where(eq(schema.sessions.id, token)).run();
+      }
+
+      // Try API key authentication if token has si_ prefix
+      if (token.startsWith("si_")) {
+        const prefix = computeKeyPrefix(token);
+        // Lookup by prefix (O(1) instead of scanning all keys)
+        const candidates = db
           .select()
-          .from(schema.users)
-          .where(eq(schema.users.role, "admin"))
-          .get();
-        if (adminUser) {
-          (request as FastifyRequest & { user?: AuthUser }).user = {
-            id: adminUser.id,
-            username: adminUser.username,
-            role: "admin",
-          };
-        }
-        return;
-      }
-
-      const isPublic = isPublicRoute(request.url);
-
-      const token = extractToken(request);
-      if (!token) {
-        // Public routes don't require a token
-        if (isPublic) return;
-        return reply.status(401).send({ error: "Authentication required" });
-      }
-
-      const session = db
-        .select()
-        .from(schema.sessions)
-        .where(eq(schema.sessions.id, token))
-        .get();
-
-      if (!session || session.expiresAt < new Date()) {
-        if (session) {
-          db.delete(schema.sessions)
-            .where(eq(schema.sessions.id, token))
-            .run();
-        }
-
-        // Try API key authentication if token has si_ prefix
-        if (token.startsWith("si_")) {
-          const prefix = computeKeyPrefix(token);
-          // Lookup by prefix (O(1) instead of scanning all keys)
-          const candidates = db.select().from(schema.apiKeys)
-            .where(eq(schema.apiKeys.keyPrefix, prefix))
-            .all();
-          // Fall back to full scan for legacy keys without a prefix
-          const keysToCheck = candidates.length > 0
+          .from(schema.apiKeys)
+          .where(eq(schema.apiKeys.keyPrefix, prefix))
+          .all();
+        // Fall back to full scan for legacy keys without a prefix
+        const keysToCheck =
+          candidates.length > 0
             ? candidates
-            : db.select().from(schema.apiKeys).all().filter(k => !k.keyPrefix);
-          for (const key of keysToCheck) {
-            const matches = await verifyPassword(token, key.keyHash);
-            if (matches) {
-              // Backfill prefix for legacy keys
-              if (!key.keyPrefix) {
-                db.update(schema.apiKeys)
-                  .set({ keyPrefix: prefix, lastUsedAt: new Date() })
-                  .where(eq(schema.apiKeys.id, key.id))
-                  .run();
-              } else {
-                db.update(schema.apiKeys)
-                  .set({ lastUsedAt: new Date() })
-                  .where(eq(schema.apiKeys.id, key.id))
-                  .run();
-              }
-              // Load the user
-              const apiUser = db.select().from(schema.users).where(eq(schema.users.id, key.userId)).get();
-              if (apiUser) {
-                (request as FastifyRequest & { user?: AuthUser }).user = {
-                  id: apiUser.id,
-                  username: apiUser.username,
-                  role: apiUser.role as "admin" | "user",
-                };
-                return;
-              }
+            : db
+                .select()
+                .from(schema.apiKeys)
+                .all()
+                .filter((k) => !k.keyPrefix);
+        for (const key of keysToCheck) {
+          const matches = await verifyPassword(token, key.keyHash);
+          if (matches) {
+            // Backfill prefix for legacy keys
+            if (!key.keyPrefix) {
+              db.update(schema.apiKeys)
+                .set({ keyPrefix: prefix, lastUsedAt: new Date() })
+                .where(eq(schema.apiKeys.id, key.id))
+                .run();
+            } else {
+              db.update(schema.apiKeys)
+                .set({ lastUsedAt: new Date() })
+                .where(eq(schema.apiKeys.id, key.id))
+                .run();
+            }
+            // Load the user
+            const apiUser = db
+              .select()
+              .from(schema.users)
+              .where(eq(schema.users.id, key.userId))
+              .get();
+            if (apiUser) {
+              (request as FastifyRequest & { user?: AuthUser }).user = {
+                id: apiUser.id,
+                username: apiUser.username,
+                role: apiUser.role as "admin" | "user",
+              };
+              return;
             }
           }
         }
-
-        // Public routes can proceed without a valid session
-        if (isPublic) return;
-        return reply.status(401).send({ error: "Session expired or invalid" });
       }
 
-      const user = db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.id, session.userId))
-        .get();
+      // Public routes can proceed without a valid session
+      if (isPublic) return;
+      return reply.status(401).send({ error: "Session expired or invalid" });
+    }
 
-      if (!user) {
-        if (isPublic) return;
-        return reply.status(401).send({ error: "User not found" });
+    const user = db.select().from(schema.users).where(eq(schema.users.id, session.userId)).get();
+
+    if (!user) {
+      if (isPublic) return;
+      return reply.status(401).send({ error: "User not found" });
+    }
+
+    // Attach user info to request for downstream handlers
+    // (always populate when a valid session exists, even on public routes)
+    (request as FastifyRequest & { user?: AuthUser }).user = {
+      id: user.id,
+      username: user.username,
+      role: user.role as "admin" | "user",
+    };
+
+    // Enforce mustChangePassword — block non-auth API calls
+    if (user.mustChangePassword) {
+      const allowed = [
+        "/api/auth/change-password",
+        "/api/auth/logout",
+        "/api/auth/session",
+        "/api/v1/config/",
+      ];
+      if (!allowed.some((p) => request.url.startsWith(p)) && request.url.startsWith("/api/")) {
+        return reply.status(403).send({
+          error: "Password change required",
+          code: "MUST_CHANGE_PASSWORD",
+        });
       }
-
-      // Attach user info to request for downstream handlers
-      // (always populate when a valid session exists, even on public routes)
-      (request as FastifyRequest & { user?: AuthUser }).user = {
-        id: user.id,
-        username: user.username,
-        role: user.role as "admin" | "user",
-      };
-
-      // Enforce mustChangePassword — block non-auth API calls
-      if (user.mustChangePassword) {
-        const allowed = ["/api/auth/change-password", "/api/auth/logout", "/api/auth/session", "/api/v1/config/"];
-        if (!allowed.some((p) => request.url.startsWith(p)) && request.url.startsWith("/api/")) {
-          return reply.status(403).send({
-            error: "Password change required",
-            code: "MUST_CHANGE_PASSWORD",
-          });
-        }
-      }
-    },
-  );
+    }
+  });
 }

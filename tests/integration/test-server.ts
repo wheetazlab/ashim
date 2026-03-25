@@ -19,25 +19,26 @@ import { dirname } from "node:path";
 mkdirSync(dirname(process.env.DB_PATH!), { recursive: true });
 mkdirSync(process.env.WORKSPACE_PATH!, { recursive: true });
 
+import cors from "@fastify/cors";
+import { APP_VERSION } from "@stirling-image/shared";
+import { eq } from "drizzle-orm";
 // ---------------------------------------------------------------------------
 // 2. Import app modules. config.ts already captured our env vars.
 // ---------------------------------------------------------------------------
 import Fastify from "fastify";
-import cors from "@fastify/cors";
-import { eq } from "drizzle-orm";
-import { runMigrations } from "../../apps/api/src/db/migrate.js";
-import { ensureDefaultAdmin, authRoutes, authMiddleware } from "../../apps/api/src/plugins/auth.js";
+import { env } from "../../apps/api/src/config.js";
 import { db, schema } from "../../apps/api/src/db/index.js";
+import { runMigrations } from "../../apps/api/src/db/migrate.js";
+import { authMiddleware, authRoutes, ensureDefaultAdmin } from "../../apps/api/src/plugins/auth.js";
 import { registerUpload } from "../../apps/api/src/plugins/upload.js";
-import { fileRoutes } from "../../apps/api/src/routes/files.js";
-import { registerToolRoutes } from "../../apps/api/src/routes/tools/index.js";
+import { apiKeyRoutes } from "../../apps/api/src/routes/api-keys.js";
 import { registerBatchRoutes } from "../../apps/api/src/routes/batch.js";
+import { fileRoutes } from "../../apps/api/src/routes/files.js";
 import { registerPipelineRoutes } from "../../apps/api/src/routes/pipeline.js";
 import { registerProgressRoutes } from "../../apps/api/src/routes/progress.js";
-import { apiKeyRoutes } from "../../apps/api/src/routes/api-keys.js";
 import { settingsRoutes } from "../../apps/api/src/routes/settings.js";
-import { env } from "../../apps/api/src/config.js";
-import { APP_VERSION } from "@stirling-image/shared";
+import { teamsRoutes } from "../../apps/api/src/routes/teams.js";
+import { registerToolRoutes } from "../../apps/api/src/routes/tools/index.js";
 
 // Run migrations to create all tables in the temp DB
 runMigrations();
@@ -98,6 +99,9 @@ export async function buildTestApp(): Promise<TestApp> {
   // Settings routes
   await settingsRoutes(app);
 
+  // Teams routes
+  await teamsRoutes(app);
+
   // Health check
   app.get("/api/v1/health", async () => ({
     status: "healthy",
@@ -133,9 +137,7 @@ export async function buildTestApp(): Promise<TestApp> {
 // ---------------------------------------------------------------------------
 
 /** Log in as the default admin and return the session token. */
-export async function loginAsAdmin(
-  app: ReturnType<typeof Fastify>,
-): Promise<string> {
+export async function loginAsAdmin(app: ReturnType<typeof Fastify>): Promise<string> {
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
