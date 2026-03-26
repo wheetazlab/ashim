@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { upscale } from "@stirling-image/ai";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { autoOrient } from "../../lib/auto-orient.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { createWorkspace } from "../../lib/workspace.js";
 import { updateSingleFileProgress } from "../progress.js";
@@ -53,6 +54,9 @@ export function registerUpscale(app: FastifyInstance) {
     try {
       const settings = settingsRaw ? JSON.parse(settingsRaw) : {};
       const scale = Number(settings.scale) || 2;
+
+      // Auto-orient to fix EXIF rotation before upscaling
+      fileBuffer = await autoOrient(fileBuffer);
 
       const jobId = randomUUID();
       const workspacePath = await createWorkspace(jobId);

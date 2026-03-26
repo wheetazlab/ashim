@@ -4,6 +4,8 @@ import { ProgressCard } from "@/components/common/progress-card";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
 import { useFileStore } from "@/stores/file-store";
 
+const QUICK_SCALES = [2, 3, 4, 6, 8];
+
 export function UpscaleSettings() {
   const { files } = useFileStore();
   const { processFiles, processing, error, downloadUrl, originalSize, processedSize, progress } =
@@ -21,9 +23,12 @@ export function UpscaleSettings() {
     <div className="space-y-4">
       {/* Scale factor */}
       <div>
-        <p className="text-sm font-medium text-muted-foreground">Scale Factor</p>
-        <div className="flex gap-1 mt-1">
-          {[2, 4].map((s) => (
+        <div className="flex justify-between items-center">
+          <p className="text-sm font-medium text-muted-foreground">Scale Factor</p>
+          <span className="text-sm font-mono font-medium">{scale}x</span>
+        </div>
+        <div className="flex gap-1 mt-1.5">
+          {QUICK_SCALES.map((s) => (
             <button
               key={s}
               type="button"
@@ -38,13 +43,16 @@ export function UpscaleSettings() {
             </button>
           ))}
         </div>
+        <input
+          type="range"
+          min={2}
+          max={8}
+          step={1}
+          value={scale}
+          onChange={(e) => setScale(Number(e.target.value))}
+          className="w-full mt-2"
+        />
       </div>
-
-      {/* Info */}
-      <p className="text-[10px] text-muted-foreground">
-        Uses Real-ESRGAN for AI upscaling when available, otherwise falls back to high-quality
-        Lanczos interpolation.
-      </p>
 
       {/* Error */}
       {error && <p className="text-xs text-red-500">{error}</p>}
@@ -63,7 +71,6 @@ export function UpscaleSettings() {
           active={processing}
           phase={progress.phase === "idle" ? "uploading" : progress.phase}
           label="Upscaling image"
-          stage={progress.stage}
           percent={progress.percent}
           elapsed={progress.elapsed}
         />
