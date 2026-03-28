@@ -1,4 +1,42 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
+
+/**
+ * Trigger the browser's "Save Password" prompt by submitting a real form
+ * with the new credentials and causing a page navigation.
+ *
+ * Safari (and most browsers) only offer to save passwords when they detect:
+ *   1. A real HTMLFormElement.submit() call (not fetch / XHR)
+ *   2. Visible input fields with autocomplete="username" + "new-password"
+ *   3. An actual page navigation following the submission
+ *
+ * We POST to "/" which the SPA serves as index.html. The browser sees the
+ * form submission + navigation and prompts to save.
+ */
+function triggerBrowserPasswordSave(username: string, password: string) {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = "/";
+  form.style.position = "fixed";
+  form.style.top = "-9999px";
+
+  const uField = document.createElement("input");
+  uField.type = "text";
+  uField.name = "username";
+  uField.autocomplete = "username";
+  uField.value = username;
+  form.appendChild(uField);
+
+  const pField = document.createElement("input");
+  pField.type = "password";
+  pField.name = "password";
+  pField.autocomplete = "new-password";
+  pField.value = password;
+  form.appendChild(pField);
+
+  document.body.appendChild(form);
+  form.submit();
+  // The form.submit() causes a full page navigation to "/", so no cleanup needed.
+}
 
 function generatePassword(): string {
   const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -63,8 +101,10 @@ export function ChangePasswordPage() {
         return;
       }
 
-      // Password changed, reload to re-check auth state
-      window.location.href = "/";
+      // Trigger browser password save prompt via real form submission + navigation
+      const username = localStorage.getItem("stirling-username") || "admin";
+      triggerBrowserPasswordSave(username, newPassword);
+      return; // navigation happens inside triggerBrowserPasswordSave
     } catch {
       setError("Connection error");
     } finally {
@@ -87,13 +127,20 @@ export function ChangePasswordPage() {
             </p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Hidden username so the browser associates saved credentials correctly */}
-            <input
-              type="hidden"
-              name="username"
-              autoComplete="username"
-              value={localStorage.getItem("stirling-username") || "admin"}
-            />
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium mb-1 text-foreground">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                name="username"
+                autoComplete="username"
+                value={localStorage.getItem("stirling-username") || "admin"}
+                readOnly
+                className="w-full px-4 py-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed"
+              />
+            </div>
             <div>
               <label
                 htmlFor="current-password"
