@@ -1,3 +1,5 @@
+import { RemoveBgControls } from "./remove-bg-settings";
+
 type FieldType = "number" | "select" | "boolean" | "text" | "color";
 
 interface FieldDef {
@@ -479,27 +481,7 @@ const TOOL_FIELDS: Record<string, FieldDef[]> = {
     { key: "background", label: "Background", type: "color", defaultValue: "#FFFFFF" },
   ],
 
-  "remove-background": [
-    {
-      key: "model",
-      label: "AI Model",
-      type: "select",
-      defaultValue: "birefnet-general-lite",
-      options: [
-        { value: "u2net", label: "Fast (u2net)" },
-        { value: "birefnet-general-lite", label: "Balanced (general)" },
-        { value: "birefnet-general", label: "Best (general)" },
-        { value: "birefnet-portrait", label: "Portrait / Passport" },
-        { value: "bria-rmbg", label: "Products (bria)" },
-      ],
-    },
-    {
-      key: "backgroundColor",
-      label: "Background color",
-      type: "color",
-      defaultValue: "",
-    },
-  ],
+  // remove-background uses its own shared controls component (DRY)
   favicon: [],
   "color-palette": [],
   "barcode-read": [],
@@ -514,6 +496,11 @@ interface PipelineStepSettingsProps {
 }
 
 export function PipelineStepSettings({ toolId, settings, onChange }: PipelineStepSettingsProps) {
+  // Tools with their own shared controls component (DRY - same UI as standalone page)
+  if (toolId === "remove-background") {
+    return <RemoveBgControls settings={settings} onChange={onChange} />;
+  }
+
   const fields = TOOL_FIELDS[toolId];
 
   if (!fields || fields.length === 0) {

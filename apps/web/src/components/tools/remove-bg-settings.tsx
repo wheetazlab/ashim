@@ -1,5 +1,5 @@
 import { Download, ImageIcon, Package, User } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ProgressCard } from "@/components/common/progress-card";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
 import { useFileStore } from "@/stores/file-store";
@@ -41,25 +41,27 @@ const BG_PRESETS = [
   { color: "#0000FF", label: "Blue", preview: "#0000FF" },
 ];
 
-export function RemoveBgSettings() {
-  const { files } = useFileStore();
-  const { processFiles, processing, error, downloadUrl, originalSize, processedSize, progress } =
-    useToolProcessor("remove-background");
+// ── Shared controls (used by both standalone page and pipeline steps) ──
 
+export interface RemoveBgControlsProps {
+  settings: Record<string, unknown>;
+  onChange: (settings: Record<string, unknown>) => void;
+}
+
+export function RemoveBgControls({ settings, onChange }: RemoveBgControlsProps) {
   const [subject, setSubject] = useState<SubjectType>("people");
   const [quality, setQuality] = useState<Quality>("balanced");
   const [isPassport, setIsPassport] = useState(false);
-  const [bgColor, setBgColor] = useState("");
+  const [bgColor, setBgColor] = useState((settings.backgroundColor as string) || "");
 
   const model = isPassport ? "birefnet-portrait" : MODEL_MAP[subject][quality];
 
-  const handleProcess = () => {
-    const settings: Record<string, unknown> = { model };
-    if (bgColor) settings.backgroundColor = bgColor;
-    processFiles(files, settings);
-  };
-
-  const hasFile = files.length > 0;
+  // Sync settings on every control change
+  useEffect(() => {
+    const next: Record<string, unknown> = { model };
+    if (bgColor) next.backgroundColor = bgColor;
+    onChange(next);
+  }, [model, bgColor, onChange]);
 
   return (
     <div className="space-y-4">
@@ -175,6 +177,28 @@ export function RemoveBgSettings() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Standalone tool page wrapper ──────────────────────────────────────
+
+export function RemoveBgSettings() {
+  const { files } = useFileStore();
+  const { processFiles, processing, error, downloadUrl, originalSize, processedSize, progress } =
+    useToolProcessor("remove-background");
+
+  const [settings, setSettings] = useState<Record<string, unknown>>({});
+
+  const handleProcess = () => {
+    processFiles(files, settings);
+  };
+
+  const hasFile = files.length > 0;
+
+  return (
+    <div className="space-y-4">
+      <RemoveBgControls settings={settings} onChange={setSettings} />
 
       {/* Error */}
       {error && <p className="text-xs text-red-500">{error}</p>}
