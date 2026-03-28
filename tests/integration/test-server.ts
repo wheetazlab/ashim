@@ -9,7 +9,7 @@
  * that can be exercised with `app.inject()` (no port binding required).
  */
 import { randomUUID } from "node:crypto";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
 // ---------------------------------------------------------------------------
@@ -130,11 +130,9 @@ export async function buildTestApp(): Promise<TestApp> {
 
   const cleanup = async () => {
     await app.close();
-    try {
-      rmSync(dirname(process.env.DB_PATH!), { recursive: true, force: true });
-    } catch {
-      // ignore
-    }
+    // Don't delete the temp DB directory here — other test files in the same
+    // vitest run share it.  The directory lives under /tmp with a random UUID
+    // and is cleaned up by the OS.
   };
 
   return { app, cleanup };
