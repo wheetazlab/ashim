@@ -26,8 +26,12 @@ export function LoginPage() {
       setToken(data.token);
       // Store username for settings display
       localStorage.setItem("stirling-username", data.user?.username || username);
-      // Full reload to force auth re-check (useAuth runs on mount)
-      window.location.href = "/";
+      // Redirect to password change if required, otherwise go home
+      if (data.user?.mustChangePassword) {
+        window.location.href = "/change-password";
+      } else {
+        window.location.href = "/";
+      }
     } catch {
       setError("Connection error");
     } finally {

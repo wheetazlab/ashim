@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { KeyboardShortcutProvider } from "./components/common/keyboard-shortcut-provider";
 import { useAuth } from "./hooks/use-auth";
 import { AutomatePage } from "./pages/automate-page";
+import { ChangePasswordPage } from "./pages/change-password-page";
 import { FilesPage } from "./pages/files-page";
 import { FullscreenGridPage } from "./pages/fullscreen-grid-page";
 import { HomePage } from "./pages/home-page";
@@ -54,11 +55,11 @@ class ErrorBoundary extends Component<
 }
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { loading, authEnabled, isAuthenticated } = useAuth();
+  const { loading, authEnabled, isAuthenticated, mustChangePassword } = useAuth();
   const location = useLocation();
 
-  // Don't guard the login page itself
-  if (location.pathname === "/login") {
+  // Don't guard the login or change-password pages
+  if (location.pathname === "/login" || location.pathname === "/change-password") {
     return <>{children}</>;
   }
 
@@ -77,6 +78,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
+  // Force password change before allowing access to the app
+  if (authEnabled && mustChangePassword) {
+    return <Navigate to="/change-password" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -88,6 +94,7 @@ export function App() {
           <AuthGuard>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/change-password" element={<ChangePasswordPage />} />
               <Route path="/automate" element={<AutomatePage />} />
               <Route path="/files" element={<FilesPage />} />
               <Route path="/fullscreen" element={<FullscreenGridPage />} />
