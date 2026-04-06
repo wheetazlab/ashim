@@ -85,17 +85,6 @@ export function requireAuth(request: FastifyRequest, reply: FastifyReply): AuthU
   return user;
 }
 
-/** Require an admin user, sending 403 if not admin. */
-export function requireAdmin(request: FastifyRequest, reply: FastifyReply): AuthUser | null {
-  const user = requireAuth(request, reply);
-  if (!user) return null;
-  if (user.role !== "admin") {
-    reply.status(403).send({ error: "Admin access required", code: "FORBIDDEN" });
-    return null;
-  }
-  return user;
-}
-
 // ── Session helpers ────────────────────────────────────────────────
 
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -341,8 +330,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // GET /api/auth/users (admin only)
   app.get("/api/auth/users", async (request: FastifyRequest, reply: FastifyReply) => {
-    const admin = requireAdmin(request, reply);
+    const admin = requireAuth(request, reply);
     if (!admin) return;
+    if (!getPermissions(admin.role as "admin" | "user").includes("users:manage")) {
+      return reply.status(403).send({ error: "Insufficient permissions", code: "FORBIDDEN" });
+    }
 
     const users = db
       .select({
@@ -371,8 +363,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // POST /api/auth/register (admin only)
   app.post("/api/auth/register", async (request: FastifyRequest, reply: FastifyReply) => {
-    const admin = requireAdmin(request, reply);
+    const admin = requireAuth(request, reply);
     if (!admin) return;
+    if (!getPermissions(admin.role as "admin" | "user").includes("users:manage")) {
+      return reply.status(403).send({ error: "Insufficient permissions", code: "FORBIDDEN" });
+    }
 
     const body = request.body as {
       username?: string;
@@ -487,12 +482,15 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     });
   });
 
-  // PUT /api/auth/users/:id (admin only — update role/team)
+  // PUT /api/auth/users/:id (admin only -- update role/team)
   app.put(
     "/api/auth/users/:id",
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-      const admin = requireAdmin(request, reply);
+      const admin = requireAuth(request, reply);
       if (!admin) return;
+      if (!getPermissions(admin.role as "admin" | "user").includes("users:manage")) {
+        return reply.status(403).send({ error: "Insufficient permissions", code: "FORBIDDEN" });
+      }
 
       const { id } = request.params;
       const body = request.body as { role?: string; team?: string } | null;
@@ -551,8 +549,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     "/api/auth/users/:id/reset-password",
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-      const admin = requireAdmin(request, reply);
+      const admin = requireAuth(request, reply);
       if (!admin) return;
+      if (!getPermissions(admin.role as "admin" | "user").includes("users:manage")) {
+        return reply.status(403).send({ error: "Insufficient permissions", code: "FORBIDDEN" });
+      }
 
       const { id } = request.params;
       const body = request.body as { newPassword?: string } | null;
@@ -605,8 +606,11 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.delete(
     "/api/auth/users/:id",
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-      const admin = requireAdmin(request, reply);
+      const admin = requireAuth(request, reply);
       if (!admin) return;
+      if (!getPermissions(admin.role as "admin" | "user").includes("users:manage")) {
+        return reply.status(403).send({ error: "Insufficient permissions", code: "FORBIDDEN" });
+      }
 
       const { id } = request.params;
 
@@ -673,7 +677,7 @@ function isPublicRoute(url: string): boolean {
 
 export async function authMiddleware(app: FastifyInstance): Promise<void> {
   app.addHook("preHandler", async (request: FastifyRequest, reply: FastifyReply) => {
-    // When auth is disabled, attach the first admin user so requireAuth/requireAdmin pass
+    // When auth is disabled, attach the first admin user so requireAuth/requirePermission pass
     if (!env.AUTH_ENABLED) {
       const adminUser = db.select().from(schema.users).where(eq(schema.users.role, "admin")).get();
       if (adminUser) {
