@@ -1,6 +1,23 @@
 # [1.12.0](https://github.com/stirling-image/stirling-image/compare/v1.11.0...v1.12.0) (2026-04-10)
 
 
+### Bug Fixes
+
+* **a11y:** add keyboard support to pdf-to-image upload dropzone ([1778f72](https://github.com/stirling-image/stirling-image/commit/1778f7266b9837a07b20f167e82e1e9b163086b7))
+* use specific selector in pdf-to-image e2e test ([b2a2c89](https://github.com/stirling-image/stirling-image/commit/b2a2c890a1d25f60e392e6a2df23e1600cc3ad8d))
+
+
+### Features
+
+* add pdf-to-image backend route with info and processing endpoints ([30155c1](https://github.com/stirling-image/stirling-image/commit/30155c1c7073c55290d4f662f7f93779cc4512b7))
+* add pdf-to-image frontend settings component ([44bbfba](https://github.com/stirling-image/stirling-image/commit/44bbfba80dfb3eb069c563e5ca691a0f8dce1eea))
+* register pdf-to-image in frontend tool registry ([5fd294c](https://github.com/stirling-image/stirling-image/commit/5fd294c994e7df076c4de0016f62d952a161345b))
+* register pdf-to-image tool in shared constants and i18n ([43324c1](https://github.com/stirling-image/stirling-image/commit/43324c1f23e3f278c89fa301d5a0275b12f587e7))
+* unified Docker image with GPU auto-detection ([#37](https://github.com/stirling-image/stirling-image/issues/37)) ([b0083e2](https://github.com/stirling-image/stirling-image/commit/b0083e2b083d0bf52b6a576f7ef67fbff0cc8cbe))
+
+# [1.12.0](https://github.com/stirling-image/stirling-image/compare/v1.11.0...v1.12.0) (2026-04-10)
+
+
 ### Features
 
 * unified Docker image with GPU auto-detection ([#37](https://github.com/stirling-image/stirling-image/issues/37)) ([b0083e2](https://github.com/stirling-image/stirling-image/commit/b0083e2b083d0bf52b6a576f7ef67fbff0cc8cbe))
