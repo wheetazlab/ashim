@@ -4,8 +4,8 @@ import { ProgressCard } from "@/components/common/progress-card";
 import { useToolProcessor } from "@/hooks/use-tool-processor";
 import { useFileStore } from "@/stores/file-store";
 
-const OUTPUT_FORMATS = ["jpg", "png", "webp", "avif", "tiff", "gif", "heic"] as const;
-const LOSSY_FORMATS = ["jpg", "jpeg", "webp", "avif", "heic"];
+const OUTPUT_FORMATS = ["jpg", "png", "webp", "avif", "tiff", "gif", "heic", "heif"] as const;
+const LOSSY_FORMATS = ["jpg", "jpeg", "webp", "avif", "heic", "heif"];
 
 export interface ConvertControlsProps {
   onChange?: (settings: Record<string, unknown>) => void;
@@ -132,10 +132,6 @@ export function ConvertSettings() {
         <div className="text-xs text-muted-foreground space-y-0.5">
           <p>Original: {(originalSize / 1024).toFixed(1)} KB</p>
           <p>Processed: {(processedSize / 1024).toFixed(1)} KB</p>
-          <p>
-            Savings:{" "}
-            {originalSize > 0 ? ((1 - processedSize / originalSize) * 100).toFixed(1) : "0"}%
-          </p>
         </div>
       )}
 

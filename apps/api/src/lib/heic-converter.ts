@@ -8,9 +8,8 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 /**
- * Find the HEIF decode command. macOS (Homebrew) provides `heif-dec`,
- * while Linux packages provide `heif-convert`. Both accept the same
- * `<input> <output>` argument syntax.
+ * Find the HEIF decode command. Both heif-convert and heif-dec accept
+ * `<input> <output>` positional arguments.
  */
 let cachedDecodeCmd: string | null = null;
 
@@ -32,20 +31,32 @@ async function findDecodeCmd(): Promise<string> {
  * Decode a HEIC/HEIF buffer to PNG using the system HEIF decoder CLI.
  * This is needed because Sharp's bundled libheif does not include the
  * HEVC decoder required for true HEIC files (iPhone photos).
+ *
+ * Multi-image HEIF files (common from iPhones) cause heif-convert/heif-dec
+ * to add numeric suffixes (-1, -2, ...) to the output filename. We try the
+ * exact path first, then fall back to the -1 suffixed path.
  */
 export async function decodeHeic(buffer: Buffer): Promise<Buffer> {
   const cmd = await findDecodeCmd();
   const id = randomUUID();
   const inputPath = join(tmpdir(), `heic-in-${id}.heic`);
   const outputPath = join(tmpdir(), `heic-out-${id}.png`);
+  const suffixedPath = outputPath.replace(/\.png$/, "-1.png");
 
   try {
     await writeFile(inputPath, buffer);
     await execFileAsync(cmd, [inputPath, outputPath], { timeout: 30_000 });
-    return await readFile(outputPath);
+
+    // Single-image HEIF: exact filename. Multi-image: -1 suffix on first image.
+    try {
+      return await readFile(outputPath);
+    } catch {
+      return await readFile(suffixedPath);
+    }
   } finally {
     await rm(inputPath, { force: true }).catch(() => {});
     await rm(outputPath, { force: true }).catch(() => {});
+    await rm(suffixedPath, { force: true }).catch(() => {});
   }
 }
 

@@ -17,7 +17,7 @@ export interface OperationResult {
   info: ImageInfo;
 }
 
-export type OutputFormat = "jpg" | "png" | "webp" | "avif" | "tiff" | "gif" | "heic";
+export type OutputFormat = "jpg" | "png" | "webp" | "avif" | "tiff" | "gif" | "heic" | "heif";
 
 export interface ResizeOptions {
   width?: number;

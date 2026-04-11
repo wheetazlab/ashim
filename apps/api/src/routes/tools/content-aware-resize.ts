@@ -6,6 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { autoOrient } from "../../lib/auto-orient.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
+import { decodeHeic } from "../../lib/heic-converter.js";
 import { createWorkspace } from "../../lib/workspace.js";
 import { registerToolProcessFn } from "../tool-factory.js";
 
@@ -57,6 +58,20 @@ export function registerContentAwareResize(app: FastifyInstance) {
       const validation = await validateImageBuffer(fileBuffer);
       if (!validation.valid) {
         return reply.status(400).send({ error: `Invalid image: ${validation.reason}` });
+      }
+
+      // Decode HEIC/HEIF input (caire can't read HEIF containers)
+      if (validation.format === "heif") {
+        try {
+          fileBuffer = await decodeHeic(fileBuffer);
+          const ext = filename.match(/\.[^.]+$/)?.[0];
+          if (ext) filename = filename.slice(0, -ext.length) + ".png";
+        } catch (err) {
+          return reply.status(422).send({
+            error: "Failed to decode HEIC/HEIF file",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
 
       // Validate settings
@@ -143,7 +158,13 @@ export function registerContentAwareResize(app: FastifyInstance) {
     settingsSchema,
     process: async (inputBuffer, settings, filename) => {
       const s = settings as Settings;
-      const orientedBuffer = await autoOrient(inputBuffer);
+      // Decode HEIC/HEIF for pipeline/batch mode
+      const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+      let buf = inputBuffer;
+      if (["heic", "heif", "hif"].includes(ext)) {
+        buf = await decodeHeic(buf);
+      }
+      const orientedBuffer = await autoOrient(buf);
       const jobId = randomUUID();
       const workspacePath = await createWorkspace(jobId);
       const result = await seamCarve(orientedBuffer, join(workspacePath, "output"), {

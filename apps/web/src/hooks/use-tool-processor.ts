@@ -7,6 +7,7 @@ import { useFileStore } from "@/stores/file-store";
 interface ProcessResult {
   jobId: string;
   downloadUrl: string;
+  previewUrl?: string;
   originalSize: number;
   processedSize: number;
   savedFileId?: string;
@@ -31,7 +32,7 @@ const AI_PYTHON_TOOLS = new Set<string>(PYTHON_SIDECAR_TOOLS);
 
 // Tools that take a few seconds (not instant like Sharp, not minutes like AI).
 // Uses a smoother progress: upload 0-40%, then a gradual fill during processing.
-const MEDIUM_TOOLS = new Set(["content-aware-resize"]);
+const MEDIUM_TOOLS = new Set(["content-aware-resize", "convert"]);
 
 export function useToolProcessor(toolId: string) {
   const {
@@ -141,8 +142,8 @@ export function useToolProcessor(toolId: string) {
       const xhr = new XMLHttpRequest();
       xhrRef.current = xhr;
 
-      // Timeout: 60s for fast/medium tools, 5 min for AI tools
-      xhr.timeout = isAiTool ? 300_000 : 60_000;
+      // Timeout: 60s for fast tools, 3 min for medium (seam carving), 5 min for AI
+      xhr.timeout = isAiTool ? 300_000 : isMediumTool ? 180_000 : 60_000;
 
       // For AI tools: upload = 0-15%, processing = 15-100% (SSE-driven)
       // For medium tools: upload = 0-40%, processing = 40-95% (gradual fill)
@@ -167,11 +168,11 @@ export function useToolProcessor(toolId: string) {
           stage: isAiTool ? "Starting..." : "Processing...",
         }));
 
-        // Medium tools: gradually fill from upload weight to 95% over ~15s
+        // Medium tools: gradually fill from upload weight to 95% over ~45s
         if (isMediumTool) {
           const start = UPLOAD_WEIGHT;
           const target = 95;
-          const step = (target - start) / 30; // 30 ticks over ~15s
+          const step = (target - start) / 90; // 90 ticks over ~45s
           processingTimerRef.current = setInterval(() => {
             setProgress((prev) => {
               if (prev.phase !== "processing") return prev;
@@ -194,7 +195,7 @@ export function useToolProcessor(toolId: string) {
           try {
             const result: ProcessResult = JSON.parse(xhr.responseText);
             setJobId(result.jobId);
-            setProcessedUrl(result.downloadUrl);
+            setProcessedUrl(result.downloadUrl, result.previewUrl);
             setSizes(result.originalSize, result.processedSize);
             // Update serverFileId if a new version was saved
             if (result.savedFileId) {

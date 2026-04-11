@@ -1,5 +1,6 @@
 import { CATEGORIES, TOOLS } from "@stirling-image/shared";
 import * as icons from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ImageViewer } from "@/components/common/image-viewer";
@@ -12,8 +13,15 @@ import { useSettingsStore } from "@/stores/settings-store";
 const QUICK_ACTION_IDS = ["resize", "compress", "convert", "remove-background"];
 
 export function HomePage() {
-  const { setFiles, files, reset, originalBlobUrl, selectedFileName, selectedFileSize } =
-    useFileStore();
+  const {
+    setFiles,
+    files,
+    reset,
+    originalBlobUrl,
+    selectedFileName,
+    selectedFileSize,
+    currentEntry,
+  } = useFileStore();
   const navigate = useNavigate();
   const { fetch: fetchSettings } = useSettingsStore();
 
@@ -141,6 +149,12 @@ export function HomePage() {
         <div className="flex-1 flex items-center justify-center p-6 min-h-0">
           {files.length > 1 ? (
             <MultiImageViewer />
+          ) : currentEntry?.previewLoading ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+              <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+              <p className="text-sm text-muted-foreground">Generating preview...</p>
+              <p className="text-xs text-muted-foreground/60">{selectedFileName}</p>
+            </div>
           ) : originalBlobUrl ? (
             <ImageViewer
               src={originalBlobUrl}

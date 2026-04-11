@@ -1,6 +1,6 @@
 import { TOOLS } from "@stirling-image/shared";
 import * as icons from "lucide-react";
-import { CheckCircle2, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Crop } from "react-image-crop";
 import { useParams } from "react-router-dom";
@@ -19,6 +19,24 @@ import { useMobile } from "@/hooks/use-mobile";
 import { formatFileSize } from "@/lib/download";
 import { getToolRegistryEntry } from "@/lib/tool-registry";
 import { useFileStore } from "@/stores/file-store";
+
+/** Formats that browsers can render in <img> tags. */
+const BROWSER_PREVIEWABLE_EXTS = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "webp",
+  "svg",
+  "bmp",
+  "ico",
+  "avif",
+]);
+
+function canBrowserPreview(url: string): boolean {
+  const ext = decodeURIComponent(url).split(".").pop()?.toLowerCase() ?? "";
+  return BROWSER_PREVIEWABLE_EXTS.has(ext);
+}
 
 /** File selection indicator shown in left panel */
 function FileSelectionInfo({
@@ -84,6 +102,7 @@ export function ToolPage() {
     addFiles,
     reset,
     processedUrl,
+    processedPreviewUrl,
     originalBlobUrl,
     originalSize,
     processedSize,
@@ -170,7 +189,7 @@ export function ToolPage() {
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.accept = "image/*";
+    input.accept = "image/*,.heic,.heif,.hif";
     input.onchange = (e) => {
       const newFiles = Array.from((e.target as HTMLInputElement).files || []);
       if (newFiles.length > 0) addFiles(newFiles);
@@ -208,11 +227,15 @@ export function ToolPage() {
   const isNoDropzone = displayMode === "no-dropzone";
   const isLivePreview = registryEntry.livePreview ?? false;
 
-  // Derive processed file info from context
-  const processedFileName = selectedFileName ? `processed-${selectedFileName}` : "processed-image";
-  const processedFileType = selectedFileName
-    ? selectedFileName.split(".").pop()?.toUpperCase() || "IMAGE"
-    : "IMAGE";
+  // Derive processed file info from the actual download URL (has correct extension)
+  const processedFileName = processedUrl
+    ? decodeURIComponent(processedUrl.split("/").pop() ?? "processed-image")
+    : "processed-image";
+  const processedFileType = processedFileName.split(".").pop()?.toUpperCase() || "IMAGE";
+  const isProcessedPreviewable = processedUrl ? canBrowserPreview(processedUrl) : false;
+  // Use server-generated preview for non-previewable formats (HEIC, TIFF).
+  // Always a string when hasProcessed is true (processedUrl is non-null).
+  const displayUrl = (processedPreviewUrl ?? processedUrl) as string;
 
   // Build settings props
   const settingsProps = {
@@ -287,6 +310,30 @@ export function ToolPage() {
       );
     }
 
+    // Non-previewable format with no server-generated preview - show success card
+    if (hasProcessed && !isProcessedPreviewable && !processedPreviewUrl) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-4 text-center p-8">
+          <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+            <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+          </div>
+          <div>
+            <p className="text-sm font-medium">Conversion complete</p>
+            <p className="text-xs text-muted-foreground mt-1">{processedFileName}</p>
+            {processedSize != null && (
+              <p className="text-xs text-muted-foreground">
+                {formatFileSize(processedSize)} · {processedFileType}
+              </p>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground max-w-xs">
+            {processedFileType} files cannot be previewed in the browser. Use the download button to
+            save your file.
+          </p>
+        </div>
+      );
+    }
+
     if (
       hasProcessed &&
       originalBlobUrl &&
@@ -295,7 +342,7 @@ export function ToolPage() {
       return (
         <SideBySideComparison
           beforeSrc={originalBlobUrl}
-          afterSrc={processedUrl}
+          afterSrc={displayUrl}
           beforeSize={originalSize ?? undefined}
           afterSize={processedSize ?? undefined}
         />
@@ -308,11 +355,7 @@ export function ToolPage() {
       (displayMode === "live-preview" || displayMode === "no-comparison")
     ) {
       return (
-        <ImageViewer
-          src={processedUrl}
-          filename={processedFileName}
-          fileSize={processedSize ?? 0}
-        />
+        <ImageViewer src={displayUrl} filename={processedFileName} fileSize={processedSize ?? 0} />
       );
     }
 
@@ -320,10 +363,20 @@ export function ToolPage() {
       return (
         <BeforeAfterSlider
           beforeSrc={originalBlobUrl}
-          afterSrc={processedUrl}
+          afterSrc={displayUrl}
           beforeSize={originalSize ?? undefined}
           afterSize={processedSize ?? undefined}
         />
+      );
+    }
+
+    if (hasFile && currentEntry?.previewLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
+          <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+          <p className="text-sm text-muted-foreground">Generating preview...</p>
+          <p className="text-xs text-muted-foreground/60">{selectedFileName}</p>
+        </div>
       );
     }
 
@@ -413,7 +466,7 @@ export function ToolPage() {
             fileSize={processedSize}
             fileType={processedFileType}
             downloadUrl={processedUrl}
-            previewUrl={processedUrl}
+            previewUrl={isProcessedPreviewable ? processedUrl : (processedPreviewUrl ?? undefined)}
             onUndo={handleUndo}
             currentToolId={tool?.id ?? ""}
           />
