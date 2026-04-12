@@ -275,6 +275,14 @@ export function ToolPage() {
   // Render the image viewer based on display mode
   function renderImageArea() {
     if (isNoDropzone) {
+      if (registryEntry?.ResultsPanel) {
+        const Panel = registryEntry.ResultsPanel;
+        return (
+          <Suspense fallback={<div className="text-sm text-muted-foreground">Loading...</div>}>
+            <Panel />
+          </Suspense>
+        );
+      }
       return (
         <div className="text-center text-muted-foreground">
           <p className="text-sm">Configure settings and generate.</p>
