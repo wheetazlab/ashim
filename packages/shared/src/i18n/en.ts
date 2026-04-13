@@ -71,6 +71,10 @@ export const en = {
       name: "Face / PII Blur",
       description: "Auto-detect and blur faces and sensitive info",
     },
+    "enhance-faces": {
+      name: "Face Enhancement",
+      description: "Restore and enhance faces with AI",
+    },
     "smart-crop": {
       name: "Smart Crop",
       description: "Smart subject, face, or trim-based cropping",
