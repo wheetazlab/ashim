@@ -7,9 +7,11 @@ import PQueue from "p-queue";
 import sharp from "sharp";
 import { z } from "zod";
 import { env } from "../../config.js";
+import { sanitizeFilename } from "../../lib/filename.js";
 import { decodeHeic, encodeHeic } from "../../lib/heic-converter.js";
 import { sanitizeSvg } from "../../lib/svg-sanitize.js";
 import { createWorkspace } from "../../lib/workspace.js";
+import { updateJobProgress } from "../progress.js";
 
 const NON_PREVIEWABLE = new Set(["tiff", "heif"]);
 
@@ -98,6 +100,7 @@ export function registerSvgToRaster(app: FastifyInstance) {
   app.post("/api/v1/tools/svg-to-raster/batch", async (request, reply) => {
     const files: ParsedSvgFile[] = [];
     let settingsRaw: string | null = null;
+    let clientJobId: string | null = null;
 
     try {
       const parts = request.parts();
@@ -111,11 +114,13 @@ export function registerSvgToRaster(app: FastifyInstance) {
           if (buf.length > 0) {
             files.push({
               buffer: buf,
-              filename: basename(part.filename ?? "output"),
+              filename: sanitizeFilename(part.filename ?? "output"),
             });
           }
         } else if (part.fieldname === "settings") {
           settingsRaw = part.value as string;
+        } else if (part.fieldname === "clientJobId") {
+          clientJobId = part.value as string;
         }
       }
     } catch (err) {
@@ -140,44 +145,99 @@ export function registerSvgToRaster(app: FastifyInstance) {
       const parsed = settingsRaw ? JSON.parse(settingsRaw) : {};
       const result = settingsSchema.safeParse(parsed);
       if (!result.success) {
-        return reply.status(400).send({ error: "Invalid settings", details: result.error.issues });
+        return reply.status(400).send({
+          error: "Invalid settings",
+          details: result.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+        });
       }
       settings = result.data;
     } catch {
       return reply.status(400).send({ error: "Settings must be valid JSON" });
     }
 
+    const jobId = clientJobId || randomUUID();
     const queue = new PQueue({ concurrency: env.CONCURRENT_JOBS });
     const results: ({ buffer: Buffer; filename: string } | null)[] = new Array(files.length).fill(
       null,
     );
-    let failedCount = 0;
+    const errors: { filename: string; error: string }[] = [];
+    let completedFiles = 0;
+
+    updateJobProgress({
+      jobId,
+      status: "processing",
+      totalFiles: files.length,
+      completedFiles: 0,
+      failedFiles: 0,
+      errors: [],
+    });
 
     const tasks = files.map((file, index) =>
       queue.add(async () => {
-        // Sanitize each SVG individually
+        updateJobProgress({
+          jobId,
+          status: "processing",
+          totalFiles: files.length,
+          completedFiles,
+          failedFiles: errors.length,
+          errors,
+          currentFile: file.filename,
+        });
+
         let sanitized: Buffer;
         try {
           sanitized = sanitizeSvg(file.buffer);
-        } catch {
-          failedCount++;
+        } catch (err) {
+          errors.push({
+            filename: file.filename,
+            error: err instanceof Error ? err.message : "Invalid SVG",
+          });
+          completedFiles++;
+          updateJobProgress({
+            jobId,
+            status: "processing",
+            totalFiles: files.length,
+            completedFiles,
+            failedFiles: errors.length,
+            errors,
+          });
           return;
         }
 
         try {
           const result = await convertSvg(sanitized, file.filename, settings);
           results[index] = { buffer: result.buffer, filename: result.filename };
-        } catch {
-          failedCount++;
+        } catch (err) {
+          errors.push({
+            filename: file.filename,
+            error: err instanceof Error ? err.message : "Conversion failed",
+          });
         }
+        completedFiles++;
+        updateJobProgress({
+          jobId,
+          status: "processing",
+          totalFiles: files.length,
+          completedFiles,
+          failedFiles: errors.length,
+          errors,
+        });
       }),
     );
 
     await Promise.all(tasks);
 
-    // If every file failed, return an error instead of an empty ZIP
-    if (failedCount === files.length) {
-      return reply.status(422).send({ error: "All files failed processing" });
+    updateJobProgress({
+      jobId,
+      status: errors.length === files.length ? "failed" : "completed",
+      totalFiles: files.length,
+      completedFiles,
+      failedFiles: errors.length,
+      errors,
+    });
+
+    if (errors.length === files.length) {
+      return reply.status(422).send({ error: "All files failed processing", errors });
     }
 
     // Deduplicate filenames and build X-File-Results header
@@ -209,8 +269,6 @@ export function registerSvgToRaster(app: FastifyInstance) {
         fileResultsMap[String(i)] = uniqueName;
       }
     }
-
-    const jobId = randomUUID();
 
     // Hijack and stream the ZIP response
     reply.hijack();
