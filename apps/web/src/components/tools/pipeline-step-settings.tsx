@@ -5,6 +5,7 @@ import { CompressControls } from "./compress-settings";
 import { ConvertControls } from "./convert-settings";
 import { CropControls } from "./crop-settings";
 import { GifToolsControls } from "./gif-tools-settings";
+import { NoiseRemovalControls } from "./noise-removal-settings";
 import { RemoveBgControls } from "./remove-bg-settings";
 import { ReplaceColorControls } from "./replace-color-settings";
 import { ResizeControls } from "./resize-settings";
@@ -44,6 +45,8 @@ export function PipelineStepSettings({ toolId, settings, onChange }: PipelineSte
   if (toolId === "blur-faces") return <BlurFacesControls settings={settings} onChange={onChange} />;
   if (toolId === "remove-background")
     return <RemoveBgControls settings={settings} onChange={onChange} />;
+  if (toolId === "noise-removal")
+    return <NoiseRemovalControls settings={settings} onChange={onChange} />;
   if (COLOR_TOOL_IDS.has(toolId))
     return <ColorControls toolId={toolId} settings={settings} onChange={onChange} />;
 

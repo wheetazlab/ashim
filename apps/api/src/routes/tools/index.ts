@@ -24,6 +24,7 @@ import { registerGifTools } from "./gif-tools.js";
 import { registerImageEnhancement } from "./image-enhancement.js";
 import { registerImageToPdf } from "./image-to-pdf.js";
 import { registerInfo } from "./info.js";
+import { registerNoiseRemoval } from "./noise-removal.js";
 import { registerOcr } from "./ocr.js";
 import { registerPdfToImage } from "./pdf-to-image.js";
 import { registerQrGenerate } from "./qr-generate.js";
@@ -132,6 +133,7 @@ export async function registerToolRoutes(app: FastifyInstance): Promise<void> {
     { id: "image-enhancement", register: registerImageEnhancement },
     { id: "content-aware-resize", register: registerContentAwareResize },
     { id: "colorize", register: registerColorize },
+    { id: "noise-removal", register: registerNoiseRemoval },
   ];
 
   let skipped = 0;
