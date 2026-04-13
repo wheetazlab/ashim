@@ -20,10 +20,11 @@ const MODES: { id: GifMode; label: string; requiresAnimation: boolean }[] = [
 ];
 
 export interface GifToolsControlsProps {
+  settings?: Record<string, unknown>;
   onChange?: (settings: Record<string, unknown>) => void;
 }
 
-export function GifToolsControls({ onChange }: GifToolsControlsProps) {
+export function GifToolsControls({ settings: initialSettings, onChange }: GifToolsControlsProps) {
   const { info, loading: infoLoading } = useGifInfo();
   const isAnimated = (info?.pages ?? 0) > 1;
 
@@ -64,6 +65,17 @@ export function GifToolsControls({ onChange }: GifToolsControlsProps) {
   // Loop control
   const [loopMode, setLoopMode] = useState<LoopMode>("infinite");
   const [loopCount, setLoopCount] = useState("2");
+
+  // Initialize from saved pipeline settings
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (!initialSettings || initializedRef.current) return;
+    initializedRef.current = true;
+    if (initialSettings.mode != null) setMode(initialSettings.mode as GifMode);
+    if (initialSettings.width != null) setWidth(String(initialSettings.width));
+    if (initialSettings.height != null) setHeight(String(initialSettings.height));
+    if (initialSettings.percentage != null) setPercentage(String(initialSettings.percentage));
+  }, [initialSettings]);
 
   // Initialize loop from metadata
   useEffect(() => {
