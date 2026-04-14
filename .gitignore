@@ -30,6 +30,8 @@ playwright-report/
 blob-report/
 
 # IDE / tool scratch
+CLAUDE.md
+.claude/
 .superpowers/
 docs/superpowers/
 PRD.md
