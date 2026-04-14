@@ -182,6 +182,16 @@ const FILE_SIZE_PRESETS = [
   { label: "500 KB", value: 500 },
 ];
 
+// ── Common background colors for passport photos ──────────────────
+
+const COMMON_BG_COLORS = [
+  { color: "#FFFFFF", label: "White" },
+  { color: "#F0F0F0", label: "Off-white" },
+  { color: "#D4D4D4", label: "Light gray (UK/DE)" },
+  { color: "#BFDBFE", label: "Light blue (FR)" },
+  { color: "#EF4444", label: "Red (ID)" },
+];
+
 // ── Canvas helpers ─────────────────────────────────────────────────
 
 function computeCropRegion(
@@ -302,6 +312,12 @@ export function PassportPhotoSettings() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
 
   // Custom file size input
   const [customSizeInput, setCustomSizeInput] = useState("");
@@ -462,10 +478,17 @@ export function PassportPhotoSettings() {
     <div className="space-y-4">
       {/* Country selector */}
       <SectionLabel>Country</SectionLabel>
-      <div ref={dropdownRef} className="relative" style={{ zIndex: 40 }}>
+      <div ref={dropdownRef} className="relative">
         <button
+          ref={buttonRef}
           type="button"
-          onClick={() => setDropdownOpen(!dropdownOpen)}
+          onClick={() => {
+            if (!dropdownOpen && buttonRef.current) {
+              const rect = buttonRef.current.getBoundingClientRect();
+              setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+            }
+            setDropdownOpen(!dropdownOpen);
+          }}
           className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground hover:border-primary/50 transition-colors"
         >
           <span>{selectedSpec.flag}</span>
@@ -482,10 +505,13 @@ export function PassportPhotoSettings() {
 
         {dropdownOpen && (
           <div
-            className="absolute mt-1 w-full max-h-64 overflow-auto rounded-lg border border-border shadow-lg"
+            className="fixed max-h-64 overflow-auto rounded-lg border border-border shadow-xl"
             style={{
-              zIndex: 50,
+              zIndex: 9999,
               backgroundColor: "var(--popover)",
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              width: dropdownPos.width,
             }}
           >
             {/* Search input */}
@@ -582,7 +608,7 @@ export function PassportPhotoSettings() {
       <SectionLabel>Background Color</SectionLabel>
       <div className="space-y-2">
         <div className="flex gap-1.5 flex-wrap">
-          {docSpec.bgColors.map((color) => (
+          {COMMON_BG_COLORS.map(({ color, label }) => (
             <button
               key={color}
               type="button"
@@ -591,7 +617,7 @@ export function PassportPhotoSettings() {
                 bgColor === color ? "border-primary scale-110" : "border-border"
               }`}
               style={{ backgroundColor: color }}
-              title={color}
+              title={label}
             />
           ))}
         </div>
@@ -777,10 +803,7 @@ export function PassportPhotoPreview() {
       canvasDisplayHeight = Math.round(canvasDisplayWidth / aspectRatio);
     }
 
-    // Apply zoom
-    canvasDisplayWidth = Math.round(canvasDisplayWidth * zoom);
-    canvasDisplayHeight = Math.round(canvasDisplayHeight * zoom);
-
+    // Canvas stays the same size; zoom crops into a sub-region of the passport photo
     canvas.width = canvasDisplayWidth;
     canvas.height = canvasDisplayHeight;
 
@@ -794,10 +817,17 @@ export function PassportPhotoPreview() {
     // Map crop region from original image coords to preview image coords
     const scaleX = img.naturalWidth / imageWidth;
     const scaleY = img.naturalHeight / imageHeight;
-    const srcX = crop.leftX * scaleX;
-    const srcY = crop.topY * scaleY;
-    const srcW = crop.photoWidthPx * scaleX;
-    const srcH = crop.photoHeightPx * scaleY;
+
+    // When zoom > 1, show a sub-region centered on the face
+    const zoomedW = crop.photoWidthPx / zoom;
+    const zoomedH = crop.photoHeightPx / zoom;
+    const zoomedLeft = crop.leftX + (crop.photoWidthPx - zoomedW) / 2;
+    const zoomedTop = crop.topY + (crop.photoHeightPx - zoomedH) / 2;
+
+    const srcX = zoomedLeft * scaleX;
+    const srcY = zoomedTop * scaleY;
+    const srcW = zoomedW * scaleX;
+    const srcH = zoomedH * scaleY;
 
     // Draw preview image onto full canvas
     ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvasDisplayWidth, canvasDisplayHeight);
@@ -811,10 +841,12 @@ export function PassportPhotoPreview() {
     ctx.setLineDash([6, 4]);
     ctx.lineWidth = 1.5;
 
+    // Helper: convert original-image Y coord to canvas Y coord (zoom-aware)
+    const toCanvasY = (origY: number) => ((origY - zoomedTop) / zoomedH) * canvasDisplayHeight;
+    const toCanvasX = (origX: number) => ((origX - zoomedLeft) / zoomedW) * canvasDisplayWidth;
+
     // Crown line
-    const crownYCanvas =
-      ((landmarks.crown.y + adjustY) * imageHeight - crop.topY) *
-      (canvasDisplayHeight / crop.photoHeightPx);
+    const crownYCanvas = toCanvasY((landmarks.crown.y + adjustY) * imageHeight);
     ctx.strokeStyle = headOk ? "#22c55e" : "#ef4444";
     ctx.beginPath();
     ctx.moveTo(0, crownYCanvas);
@@ -822,9 +854,7 @@ export function PassportPhotoPreview() {
     ctx.stroke();
 
     // Chin line
-    const chinYCanvas =
-      ((landmarks.chin.y + adjustY) * imageHeight - crop.topY) *
-      (canvasDisplayHeight / crop.photoHeightPx);
+    const chinYCanvas = toCanvasY((landmarks.chin.y + adjustY) * imageHeight);
     ctx.strokeStyle = headOk ? "#22c55e" : "#ef4444";
     ctx.beginPath();
     ctx.moveTo(0, chinYCanvas);
@@ -832,9 +862,7 @@ export function PassportPhotoPreview() {
     ctx.stroke();
 
     // Eye line
-    const eyeYCanvas =
-      ((landmarks.eyeCenter.y + adjustY) * imageHeight - crop.topY) *
-      (canvasDisplayHeight / crop.photoHeightPx);
+    const eyeYCanvas = toCanvasY((landmarks.eyeCenter.y + adjustY) * imageHeight);
     ctx.strokeStyle = eyeOk ? "#3b82f6" : "#ef4444";
     ctx.beginPath();
     ctx.moveTo(0, eyeYCanvas);
@@ -842,9 +870,7 @@ export function PassportPhotoPreview() {
     ctx.stroke();
 
     // Center line (vertical)
-    const centerXCanvas =
-      ((landmarks.faceCenterX + adjustX) * imageWidth - crop.leftX) *
-      (canvasDisplayWidth / crop.photoWidthPx);
+    const centerXCanvas = toCanvasX((landmarks.faceCenterX + adjustX) * imageWidth);
     ctx.strokeStyle = centerOk ? "#f59e0b" : "#ef4444";
     ctx.beginPath();
     ctx.moveTo(centerXCanvas, 0);
