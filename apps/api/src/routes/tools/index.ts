@@ -1,4 +1,4 @@
-import { TOOLS } from "@stirling-image/shared";
+import { TOOLS } from "@ashim/shared";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { db, schema } from "../../db/index.js";

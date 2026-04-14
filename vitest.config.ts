@@ -7,7 +7,7 @@ import { defineConfig } from "vitest/config";
 const apiNodeModules = path.resolve(__dirname, "apps/api/node_modules");
 
 // Temp dir for integration test DB + workspace (set BEFORE any app code loads)
-const testDir = path.join(os.tmpdir(), `stirling-test-${crypto.randomUUID().slice(0, 8)}`);
+const testDir = path.join(os.tmpdir(), `ashim-test-${crypto.randomUUID().slice(0, 8)}`);
 
 export default defineConfig({
   test: {
@@ -58,8 +58,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "apps/web/src"),
-      "@stirling-image/image-engine": path.resolve(__dirname, "packages/image-engine/src/index.ts"),
-      "@stirling-image/shared": path.resolve(__dirname, "packages/shared/src/index.ts"),
+      "@ashim/image-engine": path.resolve(__dirname, "packages/image-engine/src/index.ts"),
+      "@ashim/shared": path.resolve(__dirname, "packages/shared/src/index.ts"),
       // Map api-only dependencies so integration tests (and transitive imports
       // from apps/api/src) can resolve them from the root vitest runner.
       fastify: path.join(apiNodeModules, "fastify"),

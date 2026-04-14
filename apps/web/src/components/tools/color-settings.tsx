@@ -105,9 +105,9 @@ export function ColorControls({
     if (exposure !== 0) parts.push(`brightness(${1 + exposure / 200})`);
     if (saturation !== 0) parts.push(`saturate(${1 + saturation / 100})`);
     if (hue !== 0) parts.push(`hue-rotate(${hue}deg)`);
-    if (hasTempTint) parts.push("url(#stirling-temp-tint-filter)");
-    if (hasChannelChanges) parts.push("url(#stirling-channel-filter)");
-    if (sharpness > 0) parts.push("url(#stirling-sharpen-filter)");
+    if (hasTempTint) parts.push("url(#ashim-temp-tint-filter)");
+    if (hasChannelChanges) parts.push("url(#ashim-channel-filter)");
+    if (sharpness > 0) parts.push("url(#ashim-sharpen-filter)");
     if (effect === "grayscale") parts.push("grayscale(1)");
     if (effect === "sepia") parts.push("sepia(1)");
     if (effect === "invert") parts.push("invert(1)");
@@ -150,7 +150,7 @@ export function ColorControls({
       {/* Hidden SVG filters for live preview */}
       {hasTempTint && (
         <svg width="0" height="0" style={{ position: "absolute" }}>
-          <filter id="stirling-temp-tint-filter" colorInterpolationFilters="sRGB">
+          <filter id="ashim-temp-tint-filter" colorInterpolationFilters="sRGB">
             <feColorMatrix
               type="matrix"
               values={`${1 + tempT * 0.15 + tintN * 0.1} 0 0 0 0  0 ${1 + tempT * 0.05 - tintN * 0.15} 0 0 0  0 0 ${1 - tempT * 0.15 + tintN * 0.1} 0 0  0 0 0 1 0`}
@@ -160,7 +160,7 @@ export function ColorControls({
       )}
       {hasChannelChanges && (
         <svg width="0" height="0" style={{ position: "absolute" }}>
-          <filter id="stirling-channel-filter" colorInterpolationFilters="sRGB">
+          <filter id="ashim-channel-filter" colorInterpolationFilters="sRGB">
             <feColorMatrix
               type="matrix"
               values={`${red / 100} 0 0 0 0  0 ${green / 100} 0 0 0  0 0 ${blue / 100} 0 0  0 0 0 1 0`}
@@ -170,7 +170,7 @@ export function ColorControls({
       )}
       {sharpness > 0 && (
         <svg width="0" height="0" style={{ position: "absolute" }}>
-          <filter id="stirling-sharpen-filter" colorInterpolationFilters="sRGB">
+          <filter id="ashim-sharpen-filter" colorInterpolationFilters="sRGB">
             <feConvolveMatrix
               order="3"
               preserveAlpha="true"

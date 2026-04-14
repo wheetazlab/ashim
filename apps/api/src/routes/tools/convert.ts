@@ -1,5 +1,5 @@
 import { extname } from "node:path";
-import { convert } from "@stirling-image/image-engine";
+import { convert } from "@ashim/image-engine";
 import type { FastifyInstance } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";

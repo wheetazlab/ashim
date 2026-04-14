@@ -1,4 +1,4 @@
-import { PYTHON_SIDECAR_TOOLS } from "@stirling-image/shared";
+import { PYTHON_SIDECAR_TOOLS } from "@ashim/shared";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatHeaders } from "@/lib/api";
 import { generateId } from "@/lib/utils";

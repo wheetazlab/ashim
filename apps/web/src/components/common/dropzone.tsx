@@ -69,7 +69,7 @@ export function Dropzone({ onFiles, accept, multiple = true, currentFiles = [] }
     >
       <div className="flex flex-col items-center gap-4 p-8">
         <div className="text-3xl font-bold text-muted-foreground/30">
-          Stirling <span className="text-primary/30">Image</span>
+          <span className="text-primary/30">ashim</span>
         </div>
         <button
           type="button"

@@ -1,4 +1,4 @@
-import { CATEGORIES, TOOLS } from "@stirling-image/shared";
+import { CATEGORIES, TOOLS } from "@ashim/shared";
 import * as icons from "lucide-react";
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect } from "react";

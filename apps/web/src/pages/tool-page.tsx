@@ -1,4 +1,4 @@
-import { TOOLS } from "@stirling-image/shared";
+import { TOOLS } from "@ashim/shared";
 import * as icons from "lucide-react";
 import { CheckCircle2, ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";

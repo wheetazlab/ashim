@@ -92,6 +92,6 @@ jobs:
           context: .
           file: docker/Dockerfile
           push: false
-          tags: stirling-image:ci
+          tags: ashim:ci
           cache-from: type=gha,scope=unified
           cache-to: type=gha,mode=max,scope=unified

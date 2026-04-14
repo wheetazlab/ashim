@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { detectFaceLandmarks, removeBackground } from "@stirling-image/ai";
-import { PASSPORT_SPECS, PRINT_LAYOUTS } from "@stirling-image/shared";
+import { detectFaceLandmarks, removeBackground } from "@ashim/ai";
+import { PASSPORT_SPECS, PRINT_LAYOUTS } from "@ashim/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";

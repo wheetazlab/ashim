@@ -1,5 +1,5 @@
-import { detectFaces } from "@stirling-image/ai";
-import { SMART_CROP_FACE_PRESETS } from "@stirling-image/shared";
+import { detectFaces } from "@ashim/ai";
+import { SMART_CROP_FACE_PRESETS } from "@ashim/shared";
 import type { FastifyInstance } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";

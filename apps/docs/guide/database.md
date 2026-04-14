@@ -1,8 +1,8 @@
 # Database
 
-Stirling Image uses SQLite with [Drizzle ORM](https://orm.drizzle.team/) for data persistence. The schema is defined in `apps/api/src/db/schema.ts`.
+ashim uses SQLite with [Drizzle ORM](https://orm.drizzle.team/) for data persistence. The schema is defined in `apps/api/src/db/schema.ts`.
 
-The database file lives at the path set by `DB_PATH` (defaults to `./data/stirling.db`). In Docker, mount the `/data` volume to persist it across container restarts.
+The database file lives at the path set by `DB_PATH` (defaults to `./data/ashim.db`). In Docker, mount the `/data` volume to persist it across container restarts.
 
 ## Tables
 
@@ -90,7 +90,7 @@ Key-value store for server-wide settings that admins can change from the UI.
 Drizzle handles schema migrations. The config is in `apps/api/drizzle.config.ts`. During development, run:
 
 ```bash
-pnpm --filter @stirling-image/api drizzle-kit push
+pnpm --filter @ashim/api drizzle-kit push
 ```
 
 In production, the schema is applied automatically on startup.

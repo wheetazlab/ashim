@@ -3,7 +3,7 @@ import {
   type PassportDocumentSpec,
   type PassportRegion,
   type PassportSpec,
-} from "@stirling-image/shared";
+} from "@ashim/shared";
 import {
   Check,
   ChevronDown,

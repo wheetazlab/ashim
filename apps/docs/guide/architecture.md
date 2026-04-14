@@ -1,11 +1,11 @@
 # Architecture
 
-Stirling Image is a monorepo managed with pnpm workspaces and Turborepo. Everything ships as a single Docker container.
+ashim is a monorepo managed with pnpm workspaces and Turborepo. Everything ships as a single Docker container.
 
 ## Project structure
 
 ```
-Stirling-Image/
+ashim/
 ├── apps/
 │   ├── api/          # Fastify backend
 │   ├── web/          # React + Vite frontend
@@ -19,13 +19,13 @@ Stirling-Image/
 
 ## Packages
 
-### `@stirling-image/image-engine`
+### `@ashim/image-engine`
 
 The core image processing library built on [Sharp](https://sharp.pixelplumbing.com/). It handles all non-AI operations: resize, crop, rotate, flip, convert, compress, strip metadata, and color adjustments (brightness, contrast, saturation, grayscale, sepia, invert, color channels).
 
 This package has no network dependencies and runs entirely in-process.
 
-### `@stirling-image/ai`
+### `@ashim/ai`
 
 A bridge layer that calls Python scripts for ML operations. On first use, the bridge starts a persistent Python dispatcher process that pre-imports heavy libraries (rembg, OpenCV, NumPy) and keeps them warm in memory. Subsequent AI calls skip the import overhead entirely. If the dispatcher is unavailable, the bridge falls back to spawning a fresh Python subprocess per request.
 
@@ -38,7 +38,7 @@ Supported operations:
 
 Python scripts live in `packages/ai/python/`. The Docker image pre-downloads all model weights during the build so the container works offline.
 
-### `@stirling-image/shared`
+### `@ashim/shared`
 
 Shared TypeScript types, constants (like `APP_VERSION` and tool definitions), and i18n translation strings used by both the frontend and backend.
 

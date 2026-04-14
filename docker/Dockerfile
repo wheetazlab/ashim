@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ============================================
-# Stirling Image - Unified Production Dockerfile
+# ashim - Unified Production Dockerfile
 # Single image: GPU auto-detected on amd64, CPU on arm64
 # ============================================
 
@@ -33,7 +33,7 @@ COPY . .
 
 # Build only the web frontend (API runs from TS source via tsx)
 RUN --mount=type=cache,id=turbo-cache,target=/app/.turbo \
-    pnpm --filter @stirling-image/web build
+    pnpm --filter @ashim/web build
 
 # ============================================
 # Stage 2: Build caire (content-aware resize)
@@ -199,13 +199,13 @@ ENV PORT=1349 \
     DEFAULT_USERNAME=admin \
     DEFAULT_PASSWORD=admin \
     STORAGE_MODE=local \
-    DB_PATH=/data/stirling.db \
+    DB_PATH=/data/ashim.db \
     WORKSPACE_PATH=/tmp/workspace \
     FILES_STORAGE_PATH=/data/files \
     PYTHON_VENV_PATH=/opt/venv \
     DEFAULT_THEME=light \
     DEFAULT_LOCALE=en \
-    APP_NAME="Stirling Image" \
+    APP_NAME="ashim" \
     FILE_MAX_AGE_HOURS=24 \
     CLEANUP_INTERVAL_MINUTES=30 \
     MAX_UPLOAD_SIZE_MB=100 \
@@ -225,10 +225,10 @@ ENV PYTHONWARNINGS=ignore \
     PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
 
 # Create non-root user for runtime
-RUN groupadd -r stirling && useradd -r -g stirling -d /app -s /sbin/nologin stirling
-RUN chown -R stirling:stirling /app /data /tmp/workspace /opt/venv /opt/models
+RUN groupadd -r ashim && useradd -r -g ashim -d /app -s /sbin/nologin ashim
+RUN chown -R ashim:ashim /app /data /tmp/workspace /opt/venv /opt/models
 
-# Entrypoint fixes volume permissions then drops to stirling via gosu
+# Entrypoint fixes volume permissions then drops to ashim via gosu
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

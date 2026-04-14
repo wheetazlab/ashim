@@ -1,5 +1,5 @@
-import type { CategoryInfo, Tool } from "@stirling-image/shared";
-import { CATEGORIES, TOOLS } from "@stirling-image/shared";
+import type { CategoryInfo, Tool } from "@ashim/shared";
+import { CATEGORIES, TOOLS } from "@ashim/shared";
 import * as icons from "lucide-react";
 import { Eye, EyeOff, FileImage, LayoutGrid, List, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -69,7 +69,7 @@ export function FullscreenGridPage() {
             className="flex items-center gap-2 text-lg font-bold text-foreground shrink-0"
           >
             <GemLogo className="h-6 w-6 text-primary" />
-            Stirling <span className="text-primary">Image</span>
+            <span className="text-primary">ashim</span>
           </Link>
 
           {/* Search */}

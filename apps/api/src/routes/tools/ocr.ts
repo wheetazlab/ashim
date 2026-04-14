@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { basename } from "node:path";
-import { extractText } from "@stirling-image/ai";
+import { extractText } from "@ashim/ai";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { validateImageBuffer } from "../../lib/file-validation.js";

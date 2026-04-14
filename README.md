@@ -1,27 +1,26 @@
 <blockquote>
 <p align="center">
-  <strong>We're renaming!</strong> The Stirling PDF team asked us to pick a new name, and we want you to choose it.<br>
-  <a href="https://github.com/stirling-image/stirling-image/discussions/8?sort=top">Vote on the new name &rarr;</a><br>
-  <sub>Voting closes April 10, 2026</sub>
+  <strong>We've renamed!</strong> Formerly Stirling Image, now <strong>ashim</strong>.<br>
+  <a href="https://github.com/ashim-hq/ashim">github.com/ashim-hq/ashim</a>
 </p>
 </blockquote>
 
 <p align="center">
-  <img src="apps/web/public/logo-192.png" width="80" alt="Stirling Image logo">
+  <img src="apps/web/public/logo-192.png" width="80" alt="ashim logo">
 </p>
 
-<h1 align="center">Stirling Image</h1>
+<h1 align="center">ashim</h1>
 
-<p align="center">Stirling-PDF but for images. 30+ tools and local AI in a single Docker container.</p>
+<p align="center">ashim but for images. 30+ tools and local AI in a single Docker container.</p>
 
 <p align="center">
-  <a href="https://hub.docker.com/r/stirlingimage/stirling-image"><img src="https://img.shields.io/badge/Docker-Hub-blue?logo=docker" alt="Docker"></a>
-  <a href="https://github.com/stirling-image/stirling-image/actions"><img src="https://img.shields.io/github/actions/workflow/status/stirling-image/stirling-image/ci.yml?label=CI" alt="CI"></a>
-  <a href="https://github.com/stirling-image/stirling-image/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-blue" alt="License"></a>
-  <a href="https://github.com/stirling-image/stirling-image/stargazers"><img src="https://img.shields.io/github/stars/stirling-image/stirling-image?style=social" alt="Stars"></a>
+  <a href="https://hub.docker.com/r/ashimhq/ashim"><img src="https://img.shields.io/badge/Docker-Hub-blue?logo=docker" alt="Docker"></a>
+  <a href="https://github.com/ashim-hq/ashim/actions"><img src="https://img.shields.io/github/actions/workflow/status/ashim-hq/ashim/ci.yml?label=CI" alt="CI"></a>
+  <a href="https://github.com/ashim-hq/ashim/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-blue" alt="License"></a>
+  <a href="https://github.com/ashim-hq/ashim/stargazers"><img src="https://img.shields.io/github/stars/ashim-hq/ashim?style=social" alt="Stars"></a>
 </p>
 
-![Stirling Image - Dashboard](images/dashboard.png)
+![ashim - Dashboard](images/dashboard.png)
 
 ## Key Features
 
@@ -36,7 +35,7 @@
 ## Quick Start
 
 ```bash
-docker run -d -p 1349:1349 -v stirling-data:/data stirlingimage/stirling-image:latest
+docker run -d -p 1349:1349 -v ashim-data:/data ashimhq/ashim:latest
 ```
 
 Open http://localhost:1349 in your browser.
@@ -48,10 +47,10 @@ Open http://localhost:1349 in your browser.
 Add `--gpus all` for GPU-accelerated background removal, upscaling, and OCR:
 
 ```bash
-docker run -d -p 1349:1349 --gpus all -v stirling-data:/data stirlingimage/stirling-image:latest
+docker run -d -p 1349:1349 --gpus all -v ashim-data:/data ashimhq/ashim:latest
 ```
 
-> Requires an NVIDIA GPU and [Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). Falls back to CPU if no GPU is found. See [Docker Tags](https://stirling-image.github.io/stirling-image/guide/docker-tags) for benchmarks and Docker Compose examples.
+> Requires an NVIDIA GPU and [Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). Falls back to CPU if no GPU is found. See [Docker Tags](https://ashim-hq.github.io/ashim/guide/docker-tags) for benchmarks and Docker Compose examples.
 
 </details>
 
@@ -64,20 +63,20 @@ docker run -d -p 1349:1349 --gpus all -v stirling-data:/data stirlingimage/stirl
 
 You will be asked to change your password on first login. This is enforced for all new accounts and cannot be skipped in production.
 
-For Docker Compose, persistent storage, and other setup options, see the [Getting Started Guide](https://stirling-image.github.io/stirling-image/guide/getting-started). For GPU acceleration and tag details, see [Docker Tags](https://stirling-image.github.io/stirling-image/guide/docker-tags).
+For Docker Compose, persistent storage, and other setup options, see the [Getting Started Guide](https://ashim-hq.github.io/ashim/guide/getting-started). For GPU acceleration and tag details, see [Docker Tags](https://ashim-hq.github.io/ashim/guide/docker-tags).
 
 ## Documentation
 
-- [Getting Started](https://stirling-image.github.io/stirling-image/guide/getting-started)
-- [Configuration](https://stirling-image.github.io/stirling-image/guide/configuration)
-- [REST API](https://stirling-image.github.io/stirling-image/api/rest)
-- [Architecture](https://stirling-image.github.io/stirling-image/guide/architecture)
-- [Developer Guide](https://stirling-image.github.io/stirling-image/guide/developer)
-- [Translation Guide](https://stirling-image.github.io/stirling-image/guide/translations)
+- [Getting Started](https://ashim-hq.github.io/ashim/guide/getting-started)
+- [Configuration](https://ashim-hq.github.io/ashim/guide/configuration)
+- [REST API](https://ashim-hq.github.io/ashim/api/rest)
+- [Architecture](https://ashim-hq.github.io/ashim/guide/architecture)
+- [Developer Guide](https://ashim-hq.github.io/ashim/guide/developer)
+- [Translation Guide](https://ashim-hq.github.io/ashim/guide/translations)
 
 ## Feedback
 
-Found a bug or have a feature idea? Open a [GitHub Issue](https://github.com/stirling-image/stirling-image/issues). We don't accept pull requests, but your feedback directly shapes the project. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Found a bug or have a feature idea? Open a [GitHub Issue](https://github.com/ashim-hq/ashim/issues). We don't accept pull requests, but your feedback directly shapes the project. See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 <!-- TODO: Add sponsorship links once Ko-fi and GitHub Sponsors are set up -->
 
@@ -86,4 +85,4 @@ Found a bug or have a feature idea? Open a [GitHub Issue](https://github.com/sti
 This project is dual-licensed under the [AGPLv3](LICENSE) and a commercial license.
 
 - **AGPLv3 (free):** You may use, modify, and distribute this software under the AGPLv3. If you run a modified version as a network service, you must make your source code available under the AGPLv3. This applies to personal use, open-source projects, and any use that complies with AGPLv3 terms.
-- **Commercial license (paid):** If you want to use Stirling Image in proprietary software or SaaS without the AGPLv3 source-disclosure requirement, a commercial license is available. Contact me for pricing and terms.
+- **Commercial license (paid):** If you want to use ashim in proprietary software or SaaS without the AGPLv3 source-disclosure requirement, a commercial license is available. Contact me for pricing and terms.

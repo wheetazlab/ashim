@@ -1,5 +1,5 @@
 {
-  "name": "@stirling-image/image-engine",
+  "name": "@ashim/image-engine",
   "version": "1.14.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@stirling-image/shared": "workspace:*",
+    "@ashim/shared": "workspace:*",
     "exif-reader": "^2.0.3",
     "sharp": "^0.33.0"
   },

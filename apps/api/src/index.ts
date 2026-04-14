@@ -1,7 +1,7 @@
 import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
-import { isGpuAvailable } from "@stirling-image/ai";
-import { APP_VERSION } from "@stirling-image/shared";
+import { isGpuAvailable } from "@ashim/ai";
+import { APP_VERSION } from "@ashim/shared";
 import Fastify from "fastify";
 import { env } from "./config.js";
 import { db, schema } from "./db/index.js";
@@ -165,7 +165,7 @@ const cleanupCron = startCleanupCron();
 // Start
 try {
   await app.listen({ port: env.PORT, host: "0.0.0.0" });
-  console.log(`Stirling Image API running on port ${env.PORT}`);
+  console.log(`ashim API running on port ${env.PORT}`);
 } catch (err) {
   app.log.error(err);
   process.exit(1);
@@ -202,7 +202,7 @@ async function shutdown(signal: string) {
   }
 
   try {
-    const { shutdownDispatcher } = await import("@stirling-image/ai");
+    const { shutdownDispatcher } = await import("@ashim/ai");
     shutdownDispatcher();
     console.log("Python dispatcher shut down");
   } catch {

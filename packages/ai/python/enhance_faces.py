@@ -176,7 +176,7 @@ def enhance_with_codeformer(img_array, fidelity_weight):
 
     # CodeFormer selects its device during module-level init and inside
     # inference_app(). It has no device= parameter, so to respect
-    # STIRLING_GPU=false we temporarily override torch.cuda.is_available
+    # ASHIM_GPU=false we temporarily override torch.cuda.is_available
     # so all internal device checks see False. When use_gpu is True
     # (the common path) no override happens.
     _orig_cuda_check = torch.cuda.is_available

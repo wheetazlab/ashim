@@ -1,5 +1,5 @@
 import { extname } from "node:path";
-import { optimizeForWeb } from "@stirling-image/image-engine";
+import { optimizeForWeb } from "@ashim/image-engine";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";

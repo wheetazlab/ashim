@@ -24,13 +24,13 @@ def emit_progress(percent, stage):
 
 LAMA_MODEL_DIR = os.environ.get("LAMA_MODEL_DIR", "/opt/models/lama")
 LAMA_MODEL_PATH = os.path.join(LAMA_MODEL_DIR, "lama_fp32.onnx")
-LAMA_LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "stirling-image", "lama")
+LAMA_LOCAL_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "ashim", "lama")
 LAMA_LOCAL_PATH = os.path.join(LAMA_LOCAL_CACHE, "lama_fp32.onnx")
 
 CODEFORMER_MODEL_DIR = os.environ.get("CODEFORMER_MODEL_DIR", "/opt/models/codeformer")
 CODEFORMER_MODEL_PATH = os.path.join(CODEFORMER_MODEL_DIR, "codeformer.onnx")
 CODEFORMER_LOCAL_CACHE = os.path.join(
-    os.path.expanduser("~"), ".cache", "stirling-image", "codeformer"
+    os.path.expanduser("~"), ".cache", "ashim", "codeformer"
 )
 CODEFORMER_LOCAL_PATH = os.path.join(CODEFORMER_LOCAL_CACHE, "codeformer.onnx")
 

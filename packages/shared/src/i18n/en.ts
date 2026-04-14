@@ -194,7 +194,7 @@ export const en = {
     regenerateKey: "Regenerate",
     copyKey: "Copy Key",
     aboutDescription:
-      "Stirling Image is a self-hosted, privacy-first image processing suite with 30+ tools.",
+      "ashim is a self-hosted, privacy-first image processing suite with 30+ tools.",
     aboutLinks: "Links",
     github: "GitHub",
     documentation: "Documentation",

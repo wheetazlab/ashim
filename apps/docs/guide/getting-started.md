@@ -2,14 +2,14 @@
 
 ## Run with Docker
 
-The fastest way to get Stirling Image running:
+The fastest way to get ashim running:
 
 ```bash
 docker run -d \
-  --name stirling-image \
+  --name ashim \
   -p 1349:1349 \
-  -v stirling-data:/data \
-  stirlingimage/stirling-image:latest
+  -v ashim-data:/data \
+  ashimhq/ashim:latest
 ```
 
 Open `http://localhost:1349` in your browser. Log in with `admin` / `admin`.
@@ -18,7 +18,7 @@ Open `http://localhost:1349` in your browser. Log in with `admin` / `admin`.
 Have an NVIDIA GPU? Add `--gpus all` to accelerate background removal (2.7x), upscaling (3x), and OCR (1.5x):
 
 ```bash
-docker run -d --gpus all -p 1349:1349 -v stirling-data:/data stirlingimage/stirling-image:latest
+docker run -d --gpus all -p 1349:1349 -v ashim-data:/data ashimhq/ashim:latest
 ```
 
 Requires [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). Falls back to CPU if no GPU is found. See [Docker Tags](./docker-tags) for details and benchmarks.
@@ -30,14 +30,14 @@ Create a `docker-compose.yml`:
 
 ```yaml
 services:
-  stirling-image:
-    image: stirlingimage/stirling-image:latest
-    container_name: stirling-image
+  ashim:
+    image: ashimhq/ashim:latest
+    container_name: ashim
     ports:
       - "1349:1349"
     volumes:
-      - stirling-data:/data
-      - stirling-workspace:/tmp/workspace
+      - ashim-data:/data
+      - ashim-workspace:/tmp/workspace
     environment:
       - AUTH_ENABLED=true
       - DEFAULT_USERNAME=admin
@@ -45,8 +45,8 @@ services:
     restart: unless-stopped
 
 volumes:
-  stirling-data:
-  stirling-workspace:
+  ashim-data:
+  ashim-workspace:
 ```
 
 ```bash
@@ -60,8 +60,8 @@ See [Configuration](./configuration) for the full list of environment variables.
 Requirements: Node.js 22+, pnpm 9+, Python 3.10+
 
 ```bash
-git clone https://github.com/stirling-image/stirling-image.git
-cd stirling-image
+git clone https://github.com/ashim-hq/ashim.git
+cd ashim
 pnpm install
 ```
 
@@ -86,4 +86,4 @@ Some things to try first:
 - Batch process a folder of images through any tool
 - Save results to the Files page for later
 
-Every tool is also available through the [REST API](../api/rest), so you can script workflows or plug Stirling Image into other systems.
+Every tool is also available through the [REST API](../api/rest), so you can script workflows or plug ashim into other systems.

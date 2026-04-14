@@ -1,4 +1,4 @@
-import { TOOLS } from "@stirling-image/shared";
+import { TOOLS } from "@ashim/shared";
 import * as icons from "lucide-react";
 import { ArrowRight, ChevronDown, ChevronRight, Download, Undo2 } from "lucide-react";
 import { useMemo, useState } from "react";

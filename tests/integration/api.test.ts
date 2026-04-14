@@ -1,5 +1,5 @@
 /**
- * Integration tests for the Stirling-Image API.
+ * Integration tests for the ashim API.
  *
  * These tests build a real Fastify server backed by an in-memory SQLite DB
  * and exercise every endpoint with real HTTP-like requests via `app.inject()`.

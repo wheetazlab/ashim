@@ -9,7 +9,7 @@ import urllib.request
 
 # Some servers (e.g. Berkeley) block the default Python-urllib User-Agent.
 _opener = urllib.request.build_opener()
-_opener.addheaders = [("User-Agent", "Stirling-Image/1.0")]
+_opener.addheaders = [("User-Agent", "ashim/1.0")]
 urllib.request.install_opener(_opener)
 
 # Force CPU mode during build - no GPU driver available at build time.

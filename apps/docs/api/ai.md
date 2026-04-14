@@ -1,6 +1,6 @@
 # AI engine
 
-The `@stirling-image/ai` package wraps Python ML models in TypeScript functions. A persistent Python dispatcher process pre-imports heavy ML libraries at startup and keeps them warm in memory, eliminating the cold-start latency that would otherwise occur on every request. If the dispatcher is unavailable, the bridge falls back to spawning a fresh subprocess per call.
+The `@ashim/ai` package wraps Python ML models in TypeScript functions. A persistent Python dispatcher process pre-imports heavy ML libraries at startup and keeps them warm in memory, eliminating the cold-start latency that would otherwise occur on every request. If the dispatcher is unavailable, the bridge falls back to spawning a fresh subprocess per call.
 
 All model weights are bundled in the Docker image during the build. No downloads happen at runtime.
 

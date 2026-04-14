@@ -1,4 +1,4 @@
-import { CATEGORIES, TOOLS } from "@stirling-image/shared";
+import { CATEGORIES, TOOLS } from "@ashim/shared";
 import { useEffect, useMemo, useState } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
 import { SearchBar } from "../common/search-bar";

@@ -1,11 +1,11 @@
 {
-  "name": "stirling-image",
+  "name": "ashim",
   "version": "1.14.0",
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev": "turbo dev",
-    "docs:dev": "pnpm --filter @stirling-image/docs docs:dev",
+    "docs:dev": "pnpm --filter @ashim/docs docs:dev",
     "build": "turbo build",
     "lint": "turbo lint",
     "lint:fix": "biome check --write .",

@@ -1,4 +1,4 @@
-import { SOCIAL_MEDIA_PRESETS } from "@stirling-image/shared";
+import { SOCIAL_MEDIA_PRESETS } from "@ashim/shared";
 import { Download, Info, Link, Unlink } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProgressCard } from "@/components/common/progress-card";

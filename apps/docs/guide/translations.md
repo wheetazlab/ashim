@@ -1,6 +1,6 @@
 # Translation guide
 
-Stirling Image ships with English by default. The i18n system is designed so adding a new language is straightforward. This page walks you through the process.
+ashim ships with English by default. The i18n system is designed so adding a new language is straightforward. This page walks you through the process.
 
 ## How translations work
 

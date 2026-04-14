@@ -3,7 +3,7 @@
 The API server runs on port 1349 by default and serves all endpoints under `/api`.
 
 ::: tip Full API Reference
-Your Stirling Image instance includes a complete interactive API reference at `/api/docs` (e.g. `http://your-host:1349/api/docs`) with all 80+ endpoints, request/response schemas, and examples.
+Your ashim instance includes a complete interactive API reference at `/api/docs` (e.g. `http://your-host:1349/api/docs`) with all 80+ endpoints, request/response schemas, and examples.
 :::
 
 ::: info LLM-friendly docs

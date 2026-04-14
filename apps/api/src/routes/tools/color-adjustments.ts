@@ -7,7 +7,7 @@ import {
   grayscale,
   invert,
   sepia,
-} from "@stirling-image/image-engine";
+} from "@ashim/image-engine";
 import type { FastifyInstance } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";

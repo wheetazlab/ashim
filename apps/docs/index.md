@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: "Stirling Image"
+  name: "ashim"
   text: "Self-hosted image processing"
   tagline: Resize, compress, convert, remove backgrounds, and more. All on your own server, no data leaves your machine.
   actions:

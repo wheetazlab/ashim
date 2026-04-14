@@ -1,4 +1,4 @@
-import type { Tool } from "@stirling-image/shared";
+import type { Tool } from "@ashim/shared";
 import * as icons from "lucide-react";
 import { FileImage, Star } from "lucide-react";
 import { Link } from "react-router-dom";

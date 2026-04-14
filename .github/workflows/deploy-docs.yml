@@ -35,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build Docs
-        run: pnpm --filter @stirling-image/docs docs:build
+        run: pnpm --filter @ashim/docs docs:build
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

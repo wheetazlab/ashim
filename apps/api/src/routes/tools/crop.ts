@@ -1,4 +1,4 @@
-import { crop } from "@stirling-image/image-engine";
+import { crop } from "@ashim/image-engine";
 import type { FastifyInstance } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";

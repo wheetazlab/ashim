@@ -99,13 +99,13 @@ importers:
       '@scalar/fastify-api-reference':
         specifier: ^1.49.5
         version: 1.49.5
-      '@stirling-image/ai':
+      '@ashim/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@stirling-image/image-engine':
+      '@ashim/image-engine':
         specifier: workspace:*
         version: link:../../packages/image-engine
-      '@stirling-image/shared':
+      '@ashim/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       archiver:
@@ -214,7 +214,7 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.4)
-      '@stirling-image/shared':
+      '@ashim/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       clsx:
@@ -284,7 +284,7 @@ importers:
 
   packages/ai:
     dependencies:
-      '@stirling-image/shared':
+      '@ashim/shared':
         specifier: workspace:*
         version: link:../shared
       sharp:
@@ -300,7 +300,7 @@ importers:
 
   packages/image-engine:
     dependencies:
-      '@stirling-image/shared':
+      '@ashim/shared':
         specifier: workspace:*
         version: link:../shared
       exif-reader:
