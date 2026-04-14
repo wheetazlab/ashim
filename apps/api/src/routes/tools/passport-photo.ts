@@ -33,6 +33,7 @@ const generateSettingsSchema = z.object({
   documentType: z.string().default("passport"),
   bgColor: z.string().default("#FFFFFF"),
   printLayout: z.string().default("none"),
+  maxFileSizeKb: z.number().default(0),
   adjustX: z.number().default(0),
   adjustY: z.number().default(0),
   landmarks: landmarksSchema,
@@ -287,6 +288,7 @@ export function registerPassportPhoto(app: FastifyInstance) {
         documentType,
         bgColor,
         printLayout,
+        maxFileSizeKb,
         adjustX,
         adjustY,
         landmarks: rawLandmarks,
@@ -369,7 +371,7 @@ export function registerPassportPhoto(app: FastifyInstance) {
         const targetHeightPx = Math.round((docSpec.height / MM_PER_INCH) * docSpec.dpi);
 
         // Extract crop region and resize to target dimensions
-        const cropped = await sharp(bgLayer)
+        let cropped = await sharp(bgLayer)
           .extract({
             left: cropLeft,
             top: cropTop,
@@ -379,6 +381,25 @@ export function registerPassportPhoto(app: FastifyInstance) {
           .resize(targetWidthPx, targetHeightPx, { fit: "fill" })
           .jpeg({ quality: 95 })
           .toBuffer();
+
+        // Compress to fit within max file size if specified
+        if (maxFileSizeKb > 0) {
+          const targetBytes = maxFileSizeKb * 1024;
+          let quality = 90;
+          while (cropped.length > targetBytes && quality > 10) {
+            quality -= 5;
+            cropped = await sharp(bgLayer)
+              .extract({
+                left: cropLeft,
+                top: cropTop,
+                width: cropW,
+                height: cropH,
+              })
+              .resize(targetWidthPx, targetHeightPx, { fit: "fill" })
+              .jpeg({ quality })
+              .toBuffer();
+          }
+        }
 
         // Save output
         const outputFilename = `${filename.replace(/\.[^.]+$/, "")}_passport.jpg`;
