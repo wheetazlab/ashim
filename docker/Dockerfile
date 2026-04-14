@@ -63,6 +63,8 @@ ARG TARGETARCH
 FROM base-${TARGETOS}-${TARGETARCH} AS production
 
 ARG TARGETARCH
+# Set to "true" to skip model downloads (for CI builds that just test the image structure)
+ARG SKIP_MODEL_DOWNLOADS=false
 
 # Install Node.js on amd64 (CUDA base has no Node; arm64 base already has it)
 RUN if [ "$TARGETARCH" = "amd64" ]; then \
@@ -147,8 +149,14 @@ RUN /opt/venv/bin/pip install numpy==1.26.4
 # Note: on amd64, paddlepaddle-gpu can't import without the CUDA driver (only
 # available at runtime). The download script gracefully skips PaddleOCR model
 # pre-download in this case; models download on first use at runtime instead.
+# In CI (SKIP_MODEL_DOWNLOADS=true), skip downloads — the image structure is
+# what matters for the build test; models are verified in integration tests.
 COPY docker/download_models.py /tmp/download_models.py
-RUN /opt/venv/bin/python3 /tmp/download_models.py && rm -f /tmp/download_models.py
+RUN if [ "$SKIP_MODEL_DOWNLOADS" = "true" ]; then \
+        echo "Skipping model downloads (CI build)"; \
+    else \
+        /opt/venv/bin/python3 /tmp/download_models.py; \
+    fi && rm -f /tmp/download_models.py
 
 WORKDIR /app
 
