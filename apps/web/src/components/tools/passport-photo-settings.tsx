@@ -1063,7 +1063,7 @@ export function PassportPhotoPreview() {
   const handleWheel = useCallback(
     (e: React.WheelEvent<HTMLCanvasElement>) => {
       e.preventDefault();
-      setZoom(Math.max(0.5, Math.min(3, zoom + (e.deltaY > 0 ? -0.1 : 0.1))));
+      setZoom(Math.max(1, Math.min(3, zoom + (e.deltaY > 0 ? -0.1 : 0.1))));
     },
     [zoom, setZoom],
   );
@@ -1106,7 +1106,7 @@ export function PassportPhotoPreview() {
       <div className="flex items-center gap-2 shrink-0">
         <button
           type="button"
-          onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}
+          onClick={() => setZoom(Math.max(1, zoom - 0.25))}
           className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Zoom out"
         >
