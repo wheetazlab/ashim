@@ -335,35 +335,53 @@ export function registerPassportPhoto(app: FastifyInstance) {
         const topY = eyeYPx - photoHeightPx * (1 - docSpec.eyeLineFromBottom);
         const leftX = faceCenterXPx - photoWidthPx / 2;
 
-        // Clamp to image bounds
-        const cropW = Math.min(Math.round(photoWidthPx), imgW);
-        const cropH = Math.min(Math.round(photoHeightPx), imgH);
-        let cropLeft = Math.max(0, Math.round(leftX));
-        let cropTop = Math.max(0, Math.round(topY));
-        if (cropLeft + cropW > imgW) cropLeft = imgW - cropW;
-        if (cropTop + cropH > imgH) cropTop = imgH - cropH;
-        cropLeft = Math.max(0, cropLeft);
-        cropTop = Math.max(0, cropTop);
-
         // Parse background color
         const hex = bgColor.replace("#", "");
         const bgR = Number.parseInt(hex.slice(0, 2), 16);
         const bgG = Number.parseInt(hex.slice(2, 4), 16);
         const bgB = Number.parseInt(hex.slice(4, 6), 16);
+        const bgRgb = { r: bgR, g: bgG, b: bgB, alpha: 1 };
 
-        // Composite bg-removed onto colored background
+        // Composite bg-removed subject onto colored background
         const bgRemovedMeta = await sharp(bgRemovedBuffer).metadata();
+        const srcW = bgRemovedMeta.width ?? imgW;
+        const srcH = bgRemovedMeta.height ?? imgH;
         const bgLayer = await sharp({
-          create: {
-            width: bgRemovedMeta.width ?? imgW,
-            height: bgRemovedMeta.height ?? imgH,
-            channels: 4,
-            background: { r: bgR, g: bgG, b: bgB, alpha: 1 },
-          },
+          create: { width: srcW, height: srcH, channels: 4, background: bgRgb },
         })
           .composite([{ input: bgRemovedBuffer, blend: "over" }])
           .png()
           .toBuffer();
+
+        // The crop region may extend beyond the image (e.g. top of head above
+        // the photo). Instead of clamping (which cuts off the head), pad the
+        // image with background color so the full intended region is available.
+        const rawLeft = Math.round(leftX);
+        const rawTop = Math.round(topY);
+        const rawW = Math.round(photoWidthPx);
+        const rawH = Math.round(photoHeightPx);
+
+        const padLeft = Math.max(0, -rawLeft);
+        const padTop = Math.max(0, -rawTop);
+        const padRight = Math.max(0, rawLeft + rawW - srcW);
+        const padBottom = Math.max(0, rawTop + rawH - srcH);
+
+        let sourceForCrop = bgLayer;
+        if (padLeft > 0 || padTop > 0 || padRight > 0 || padBottom > 0) {
+          sourceForCrop = await sharp(bgLayer)
+            .extend({
+              top: padTop,
+              bottom: padBottom,
+              left: padLeft,
+              right: padRight,
+              background: bgRgb,
+            })
+            .toBuffer();
+        }
+
+        // Crop coordinates adjusted for padding
+        const cropLeft = rawLeft + padLeft;
+        const cropTop = rawTop + padTop;
 
         // Target pixel dimensions at 300 DPI
         const MM_PER_INCH = 25.4;
@@ -371,13 +389,8 @@ export function registerPassportPhoto(app: FastifyInstance) {
         const targetHeightPx = Math.round((docSpec.height / MM_PER_INCH) * docSpec.dpi);
 
         // Extract crop region and resize to target dimensions
-        let cropped = await sharp(bgLayer)
-          .extract({
-            left: cropLeft,
-            top: cropTop,
-            width: cropW,
-            height: cropH,
-          })
+        let cropped = await sharp(sourceForCrop)
+          .extract({ left: cropLeft, top: cropTop, width: rawW, height: rawH })
           .resize(targetWidthPx, targetHeightPx, { fit: "fill" })
           .jpeg({ quality: 95 })
           .toBuffer();
@@ -388,13 +401,8 @@ export function registerPassportPhoto(app: FastifyInstance) {
           let quality = 90;
           while (cropped.length > targetBytes && quality > 10) {
             quality -= 5;
-            cropped = await sharp(bgLayer)
-              .extract({
-                left: cropLeft,
-                top: cropTop,
-                width: cropW,
-                height: cropH,
-              })
+            cropped = await sharp(sourceForCrop)
+              .extract({ left: cropLeft, top: cropTop, width: rawW, height: rawH })
               .resize(targetWidthPx, targetHeightPx, { fit: "fill" })
               .jpeg({ quality })
               .toBuffer();

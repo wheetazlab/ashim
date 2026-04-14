@@ -505,20 +505,16 @@ export function PassportPhotoSettings() {
 
         {dropdownOpen && (
           <div
-            className="fixed max-h-64 overflow-auto rounded-lg border border-border shadow-xl"
+            className="fixed max-h-64 overflow-auto rounded-lg border border-border shadow-xl bg-white dark:bg-zinc-900"
             style={{
               zIndex: 9999,
-              backgroundColor: "var(--popover)",
               top: dropdownPos.top,
               left: dropdownPos.left,
               width: dropdownPos.width,
             }}
           >
             {/* Search input */}
-            <div
-              className="sticky top-0 p-2 border-b border-border"
-              style={{ backgroundColor: "var(--popover)" }}
-            >
+            <div className="sticky top-0 p-2 border-b border-border bg-white dark:bg-zinc-900">
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <input
@@ -1028,9 +1024,14 @@ export function PassportPhotoPreview() {
             onMouseDown={handleMouseDown}
             onWheel={handleWheel}
           />
-          <div className="absolute bottom-2 right-2 flex items-center gap-1 bg-black/50 text-white text-[10px] px-2 py-1 rounded-md">
-            <Move className="h-3 w-3" />
-            Drag to adjust
+          <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
+            <div className="flex items-center gap-1 bg-black/50 text-white text-[10px] px-2 py-1 rounded-md">
+              <Move className="h-3 w-3" />
+              Drag to adjust
+            </div>
+            <div className="bg-black/50 text-white text-[10px] px-2 py-1 rounded-md">
+              Scroll to zoom
+            </div>
           </div>
         </div>
       </div>
