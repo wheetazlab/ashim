@@ -14,6 +14,14 @@ export default defineConfig({
     globals: true,
     testTimeout: 30_000,
     hookTimeout: 30_000,
+    // Run all test files in a single forked process so integration tests share
+    // the same SQLite connection and avoid SQLITE_BUSY races on WAL setup.
+    pool: "forks",
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     exclude: [
       "tests/e2e/**",
       "**/node_modules/**",
