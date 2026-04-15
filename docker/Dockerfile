@@ -38,16 +38,35 @@ RUN --mount=type=cache,id=turbo-cache,target=/app/.turbo \
 # ============================================
 # Stage 2: Build caire (content-aware resize)
 # ============================================
-FROM golang:1.23-bookworm AS caire-builder
+# Run the Go toolchain on the native build platform to avoid QEMU crashes
+# on Apple Silicon when cross-compiling for linux/amd64.
+FROM --platform=$BUILDPLATFORM golang:1.23-bookworm AS caire-builder
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev \
-    libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev \
-    libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev \
-    libvulkan-dev libxfixes-dev pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+ARG TARGETOS=linux
+ARG TARGETARCH
 
-RUN go install github.com/esimov/caire/cmd/caire@v1.5.0
+# Graphics libs are only needed for native-arch CGO builds (the display window).
+# For cross-arch builds we use CGO_ENABLED=0 — the server never shows a display.
+RUN NATIVE=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') && \
+    if [ "$TARGETARCH" = "$NATIVE" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends \
+            libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev \
+            libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev \
+            libxrandr-dev libxinerama-dev libxi-dev libxxf86vm-dev \
+            libvulkan-dev libxfixes-dev pkg-config \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Build and copy to a fixed path so the COPY step below is always the same.
+RUN NATIVE=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') && \
+    if [ "$TARGETARCH" = "$NATIVE" ]; then \
+        go install github.com/esimov/caire/cmd/caire@v1.5.0 && \
+        cp /go/bin/caire /tmp/caire; \
+    else \
+        CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+            go install github.com/esimov/caire/cmd/caire@v1.5.0 && \
+        cp /go/bin/${TARGETOS}_${TARGETARCH}/caire /tmp/caire; \
+    fi
 
 # ============================================
 # Stage 3: Platform-specific base images
@@ -106,7 +125,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Caire binary (content-aware seam carving)
-COPY --from=caire-builder /go/bin/caire /usr/local/bin/caire
+COPY --from=caire-builder /tmp/caire /usr/local/bin/caire
 
 # Python venv - Layer 1: Base packages (rarely change, ~3 GB)
 RUN python3 -m venv /opt/venv && \
