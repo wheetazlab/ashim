@@ -18,6 +18,7 @@ const BROWSER_PREVIEWABLE_EXTS = new Set([
 ]);
 
 function canBrowserPreview(url: string): boolean {
+  if (url.startsWith("blob:")) return true;
   const ext = decodeURIComponent(url).split(".").pop()?.toLowerCase() ?? "";
   return BROWSER_PREVIEWABLE_EXTS.has(ext);
 }

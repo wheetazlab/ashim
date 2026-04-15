@@ -41,7 +41,9 @@ const BROWSER_PREVIEWABLE_EXTS = new Set([
 ]);
 
 function canBrowserPreview(url: string, filename?: string | null): boolean {
-  // For blob URLs from batch processing, check the real filename instead
+  // Blob URLs are always renderable in <img> tags — no extension to check
+  if (url.startsWith("blob:")) return true;
+  // For batch results, check the stored filename (has extension) rather than the blob URL
   const source = filename ?? url;
   const ext = decodeURIComponent(source).split(".").pop()?.toLowerCase() ?? "";
   return BROWSER_PREVIEWABLE_EXTS.has(ext);
