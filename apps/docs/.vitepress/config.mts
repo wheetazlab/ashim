@@ -46,7 +46,7 @@ export default defineConfig({
 `,
         customTemplateVariables: {
           description:
-            "Self-hosted, open-source image processing platform with 30+ tools including AI/ML. Runs in a single Docker container with GPU auto-detection.",
+            "Self-hosted, open-source image processing platform with 45+ tools including AI/ML. Runs in a single Docker container with GPU auto-detection.",
           details:
             "Resize, compress, convert, remove backgrounds, upscale, run OCR, and more - without sending images to external services.",
         },
