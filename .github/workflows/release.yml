@@ -45,8 +45,17 @@ jobs:
           if [ -f .release-version ]; then
             echo "version=$(cat .release-version)" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::semantic-release did not produce a new version. No releasable commits found."
-            exit 1
+            # semantic-release found no new commits — tag already exists from a
+            # previous run. Fall back to the latest git tag so the Docker build
+            # jobs still run (useful when re-triggering after a push failure).
+            latest=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+            if [ -n "$latest" ]; then
+              echo "version=$latest" >> "$GITHUB_OUTPUT"
+              echo "Re-using existing tag v${latest} for Docker build."
+            else
+              echo "::error::semantic-release did not produce a new version. No releasable commits found."
+              exit 1
+            fi
           fi
 
   docker:
