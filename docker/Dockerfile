@@ -127,14 +127,14 @@ ENV COREPACK_HOME=/usr/local/share/corepack
 
 # Install Node.js on amd64 (CUDA base has no Node; arm64 base already has it)
 RUN if [ "$TARGETARCH" = "amd64" ]; then \
-    apt-get update && apt-get install -y --no-install-recommends \
+    apt-get -o Acquire::Retries=3 update && apt-get install -y --no-install-recommends \
         curl ca-certificates gnupg && \
     mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | \
         gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > \
         /etc/apt/sources.list.d/nodesource.list && \
-    apt-get update && apt-get install -y nodejs && \
+    apt-get -o Acquire::Retries=3 update && apt-get install -y nodejs && \
     rm -rf /var/lib/apt/lists/* \
 ; fi
 
@@ -142,7 +142,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate && \
     chmod -R a+rX /usr/local/share/corepack
 
 # System dependencies (all platforms)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Retries=3 update && apt-get install -y --no-install-recommends \
     tini \
     imagemagick \
     libraw-dev \
