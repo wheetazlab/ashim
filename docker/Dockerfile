@@ -122,8 +122,6 @@ ARG TARGETARCH
 FROM base-${TARGETOS}-${TARGETARCH} AS production
 
 ARG TARGETARCH
-# Set to "true" to skip model downloads (for CI builds that just test the image structure)
-ARG SKIP_MODEL_DOWNLOADS=false
 
 # Pin corepack's cache to a system-wide path so all users share the same pnpm
 # binary without downloading it on each container start.
@@ -173,81 +171,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
         numpy==1.26.4 \
         opencv-python-headless==4.10.0.84
 
-# Platform-conditional ONNX runtime
-RUN --mount=type=cache,target=/root/.cache/pip \
-    if [ "$TARGETARCH" = "amd64" ]; then \
-    /opt/venv/bin/pip install onnxruntime-gpu==1.20.1 \
-; else \
-    /opt/venv/bin/pip install onnxruntime==1.20.1 \
-; fi
-
-# Python venv - Layer 2: Tool packages (change occasionally, ~2 GB)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    if [ "$TARGETARCH" = "amd64" ]; then \
-    /opt/venv/bin/pip install rembg==2.0.62 && \
-    /opt/venv/bin/pip install realesrgan==0.3.0 \
-        --extra-index-url https://download.pytorch.org/whl/cu126 && \
-    /opt/venv/bin/pip install paddlepaddle-gpu>=3.2.1 \
-        --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu126/ && \
-    /opt/venv/bin/pip install "paddleocr[doc-parser]>=3.4.0,<3.5.0" \
-; else \
-    /opt/venv/bin/pip install "rembg[cpu]==2.0.62" && \
-    /opt/venv/bin/pip install realesrgan==0.3.0 && \
-    /opt/venv/bin/pip install paddlepaddle==3.0.0 "paddleocr[doc-parser]>=3.4.0,<3.5.0" \
-; fi
-
-# mediapipe 0.10.21 only has amd64 wheels; arm64 maxes out at 0.10.18
-RUN --mount=type=cache,target=/root/.cache/pip \
-    if [ "$TARGETARCH" = "amd64" ]; then \
-    /opt/venv/bin/pip install mediapipe==0.10.21 \
-; else \
-    /opt/venv/bin/pip install mediapipe==0.10.18 \
-; fi
-
-# CodeFormer face enhancement (install with --no-deps to avoid numpy 2.x conflict)
-RUN --mount=type=cache,target=/root/.cache/pip \
-    /opt/venv/bin/pip install --no-deps codeformer-pip==0.0.4 lpips
-
-# Re-pin numpy to 1.26.4 in case any transitive dep upgraded it
-RUN --mount=type=cache,target=/root/.cache/pip \
-    /opt/venv/bin/pip install numpy==1.26.4
-
-# Re-align NCCL to match torch's requirement.  paddlepaddle-gpu pins an older
-# nvidia-nccl-cu12 which silently downgrades the version installed by torch,
-# causing "undefined symbol: ncclCommShrink" at import time.  NCCL is ABI-
-# backwards-compatible, so the newer version satisfies both packages.
-RUN --mount=type=cache,target=/root/.cache/pip \
-    if [ "$TARGETARCH" = "amd64" ]; then \
-    /opt/venv/bin/pip install $(/opt/venv/bin/python3 -c \
-        "from importlib.metadata import requires; \
-         print([r.split(';')[0].strip() for r in requires('torch') \
-                if 'nccl' in r][0])") \
-    ; fi
-
-# Pin rembg model storage to a fixed path so models downloaded at build time
-# (as root) are found at runtime (as the non-root ashim user, home=/app).
-# Without this, rembg defaults to ~/.u2net which differs between users.
-ENV U2NET_HOME=/opt/models/rembg
-
-# Pre-download and verify all ML models
-# Note: on amd64, paddlepaddle-gpu can't import without the CUDA driver (only
-# available at runtime). The download script gracefully skips PaddleOCR model
-# pre-download in this case; models download on first use at runtime instead.
-# In CI (SKIP_MODEL_DOWNLOADS=true), skip downloads — the image structure is
-# what matters for the build test; models are verified in integration tests.
-COPY docker/download_models.py /tmp/download_models.py
-RUN if [ "$SKIP_MODEL_DOWNLOADS" = "true" ]; then \
-        echo "Skipping model downloads (CI build)"; \
-    else \
-        CUDA_VISIBLE_DEVICES="" /opt/venv/bin/python3 /tmp/download_models.py; \
-    fi && rm -f /tmp/download_models.py && \
-    # Symlink PaddleX model dir into both possible HOME locations so models are
-    # found regardless of whether HOME=/root (build/root context) or HOME=/app
-    # (runtime ashim user via gosu). Without this PaddleX re-downloads on every
-    # fresh container start.
-    mkdir -p /opt/models/paddlex/official_models /root/.paddlex /app/.paddlex && \
-    ln -sf /opt/models/paddlex/official_models /root/.paddlex/official_models && \
-    ln -sf /opt/models/paddlex/official_models /app/.paddlex/official_models
+# On-demand AI feature installer and manifest
+COPY docker/feature-manifest.json /app/docker/feature-manifest.json
+COPY packages/ai/python/install_feature.py /app/packages/ai/python/install_feature.py
 
 WORKDIR /app
 
@@ -266,10 +192,6 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store/v3 \
     npm pkg delete scripts.prepare && \
     pnpm install --frozen-lockfile --prod
 
-# Remove build tools no longer needed in production
-RUN apt-get purge -y --auto-remove build-essential python3-dev && \
-    rm -rf /var/lib/apt/lists/*
-
 # Copy source code for API (tsx runs TS directly - no build step needed)
 COPY apps/api/src ./apps/api/src
 COPY apps/api/drizzle ./apps/api/drizzle
@@ -283,14 +205,8 @@ COPY packages/ai/python ./packages/ai/python
 # Copy built frontend from builder stage
 COPY --from=builder /app/apps/web/dist ./apps/web/dist
 
-# Create required directories (including /opt/models so chown works even when
-# SKIP_MODEL_DOWNLOADS=true skips the download script that would create it)
-RUN mkdir -p /data /data/files /tmp/workspace /opt/models
-
-# Symlink facexlib models for codeformer-pip (expects gfpgan/weights/ relative to CWD)
-RUN mkdir -p /app/gfpgan/weights/CodeFormer && \
-    ln -sf /opt/models/gfpgan/facelib /app/gfpgan/weights/facelib && \
-    ln -sf /opt/models/codeformer/codeformer.pth /app/gfpgan/weights/CodeFormer/codeformer.pth
+# Create required directories
+RUN mkdir -p /data /data/files /data/ai/models /data/ai/pip-cache /tmp/workspace
 
 # Environment defaults
 ENV PORT=1349 \
@@ -299,7 +215,10 @@ ENV PORT=1349 \
     DB_PATH=/data/ashim.db \
     WORKSPACE_PATH=/tmp/workspace \
     FILES_STORAGE_PATH=/data/files \
-    PYTHON_VENV_PATH=/opt/venv \
+    PYTHON_VENV_PATH=/data/ai/venv \
+    MODELS_PATH=/data/ai/models \
+    DATA_DIR=/data \
+    U2NET_HOME=/data/ai/models/rembg \
     DEFAULT_THEME=light \
     DEFAULT_LOCALE=en \
     APP_NAME="ashim" \
@@ -323,7 +242,7 @@ ENV PYTHONWARNINGS=default \
 
 # Create non-root user for runtime
 RUN groupadd -r ashim && useradd -r -g ashim -d /app -s /sbin/nologin ashim
-RUN chown -R ashim:ashim /app /data /tmp/workspace /opt/venv /opt/models
+RUN chown -R ashim:ashim /app /data /tmp/workspace /opt/venv
 
 # Entrypoint fixes volume permissions then drops to ashim via gosu
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
