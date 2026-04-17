@@ -1,3 +1,10 @@
+## [1.15.6](https://github.com/ashim-hq/ashim/compare/v1.15.5...v1.15.6) (2026-04-17)
+
+
+### Performance Improvements
+
+* parallelize model downloads and switch to registry cache ([79c4ed6](https://github.com/ashim-hq/ashim/commit/79c4ed6a359b008dedeb154a55e2764ee0e3d9fa))
+
 ## [1.15.5](https://github.com/ashim-hq/ashim/compare/v1.15.4...v1.15.5) (2026-04-17)
 
 
