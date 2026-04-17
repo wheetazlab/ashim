@@ -2,10 +2,12 @@ import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { restorePhoto } from "@ashim/ai";
+import { getBundleForTool } from "@ashim/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";
 import { autoOrient } from "../../lib/auto-orient.js";
+import { isToolInstalled } from "../../lib/feature-status.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { decodeHeic } from "../../lib/heic-converter.js";
 import { resolveOutputFormat } from "../../lib/output-format.js";
@@ -65,6 +67,18 @@ export function registerRestorePhoto(app: FastifyInstance) {
     const validation = await validateImageBuffer(fileBuffer);
     if (!validation.valid) {
       return reply.status(400).send({ error: `Invalid image: ${validation.reason}` });
+    }
+
+    // Guard: check if the photo restoration feature bundle is installed
+    if (!isToolInstalled("restore-photo")) {
+      const bundle = getBundleForTool("restore-photo");
+      return reply.status(501).send({
+        error: "Feature not installed",
+        code: "FEATURE_NOT_INSTALLED",
+        feature: "photo-restoration",
+        featureName: bundle?.name ?? "Photo Restoration",
+        estimatedSize: bundle?.estimatedSize ?? "unknown",
+      });
     }
 
     try {

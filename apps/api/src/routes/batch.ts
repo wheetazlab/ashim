@@ -8,12 +8,14 @@
  * Returns a ZIP file containing all processed images.
  */
 import { randomUUID } from "node:crypto";
+import { getBundleForTool, TOOL_BUNDLE_MAP } from "@ashim/shared";
 import archiver from "archiver";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import PQueue from "p-queue";
 import { env } from "../config.js";
 import { autoOrient } from "../lib/auto-orient.js";
 import { formatZodErrors } from "../lib/errors.js";
+import { isToolInstalled } from "../lib/feature-status.js";
 import { validateImageBuffer } from "../lib/file-validation.js";
 import { sanitizeFilename } from "../lib/filename.js";
 import { decodeHeic } from "../lib/heic-converter.js";
@@ -35,6 +37,18 @@ export async function registerBatchRoutes(app: FastifyInstance): Promise<void> {
       const toolConfig = getToolConfig(toolId);
       if (!toolConfig) {
         return reply.status(404).send({ error: `Tool "${toolId}" not found` });
+      }
+
+      // Guard: check if the tool's AI feature bundle is installed
+      if (!isToolInstalled(toolId)) {
+        const bundle = getBundleForTool(toolId);
+        return reply.status(501).send({
+          error: "Feature not installed",
+          code: "FEATURE_NOT_INSTALLED",
+          feature: TOOL_BUNDLE_MAP[toolId],
+          featureName: bundle?.name ?? toolId,
+          estimatedSize: bundle?.estimatedSize ?? "unknown",
+        });
       }
 
       // Parse multipart: collect all files and the settings field

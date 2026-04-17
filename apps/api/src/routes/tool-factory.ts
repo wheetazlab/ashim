@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getBundleForTool, TOOL_BUNDLE_MAP } from "@ashim/shared";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
@@ -8,6 +9,7 @@ import type { z } from "zod";
 import { db, schema } from "../db/index.js";
 import { autoOrient } from "../lib/auto-orient.js";
 import { formatZodErrors } from "../lib/errors.js";
+import { isToolInstalled } from "../lib/feature-status.js";
 import { validateImageBuffer } from "../lib/file-validation.js";
 import { sanitizeFilename } from "../lib/filename.js";
 import { decodeHeic } from "../lib/heic-converter.js";
@@ -192,6 +194,19 @@ export function createToolRoute<T>(app: FastifyInstance, config: ToolRouteConfig
         settings = result.data;
       } catch {
         return reply.status(400).send({ error: "Settings must be valid JSON" });
+      }
+
+      // Guard: check if the tool's AI feature bundle is installed
+      const bundleId = TOOL_BUNDLE_MAP[config.toolId];
+      if (bundleId && !isToolInstalled(config.toolId)) {
+        const bundle = getBundleForTool(config.toolId);
+        return reply.status(501).send({
+          error: "Feature not installed",
+          code: "FEATURE_NOT_INSTALLED",
+          feature: bundleId,
+          featureName: bundle?.name ?? bundleId,
+          estimatedSize: bundle?.estimatedSize ?? "unknown",
+        });
       }
 
       // Process the image (worker thread or main thread)

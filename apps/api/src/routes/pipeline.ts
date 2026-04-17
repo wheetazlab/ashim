@@ -9,6 +9,7 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getBundleForTool, TOOL_BUNDLE_MAP } from "@ashim/shared";
 import archiver from "archiver";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -18,6 +19,7 @@ import { env } from "../config.js";
 import { db, schema } from "../db/index.js";
 import { autoOrient } from "../lib/auto-orient.js";
 import { formatZodErrors } from "../lib/errors.js";
+import { isToolInstalled } from "../lib/feature-status.js";
 import { validateImageBuffer } from "../lib/file-validation.js";
 import { sanitizeFilename } from "../lib/filename.js";
 import { decodeHeic } from "../lib/heic-converter.js";
@@ -153,6 +155,17 @@ export async function registerPipelineRoutes(app: FastifyInstance): Promise<void
       if (!toolConfig) {
         return reply.status(400).send({
           error: `Step ${i + 1} (${step.toolId}): Tool not found or not available`,
+        });
+      }
+
+      // Guard: check if the tool's AI feature bundle is installed
+      if (!isToolInstalled(resolvedToolId)) {
+        const bundle = getBundleForTool(resolvedToolId);
+        return reply.status(501).send({
+          error: `Step ${i + 1} (${step.toolId}): Feature "${bundle?.name}" is not installed`,
+          code: "FEATURE_NOT_INSTALLED",
+          feature: TOOL_BUNDLE_MAP[resolvedToolId],
+          featureName: bundle?.name ?? resolvedToolId,
         });
       }
 
@@ -444,6 +457,17 @@ export async function registerPipelineRoutes(app: FastifyInstance): Promise<void
       if (!toolConfig) {
         return reply.status(400).send({
           error: `Step ${i + 1}: Tool "${step.toolId}" not found`,
+        });
+      }
+
+      // Guard: check if the tool's AI feature bundle is installed
+      if (!isToolInstalled(step.toolId)) {
+        const bundle = getBundleForTool(step.toolId);
+        return reply.status(501).send({
+          error: `Step ${i + 1} (${step.toolId}): Feature "${bundle?.name}" is not installed`,
+          code: "FEATURE_NOT_INSTALLED",
+          feature: TOOL_BUNDLE_MAP[step.toolId],
+          featureName: bundle?.name ?? step.toolId,
         });
       }
 
