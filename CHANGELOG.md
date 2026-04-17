@@ -1,3 +1,10 @@
+## [1.15.7](https://github.com/ashim-hq/ashim/compare/v1.15.6...v1.15.7) (2026-04-17)
+
+
+### Bug Fixes
+
+* add retry with backoff for apt-get update on CUDA base image ([3d6db5a](https://github.com/ashim-hq/ashim/commit/3d6db5a32d3f9292d5476e9bd80c1f06624fa316))
+
 ## [1.15.6](https://github.com/ashim-hq/ashim/compare/v1.15.5...v1.15.6) (2026-04-17)
 
 
