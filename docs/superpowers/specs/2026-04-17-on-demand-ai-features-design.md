@@ -194,7 +194,7 @@ Currently `registerToolRoutes()` either registers a route or doesn't (disabled t
 
 **Solution: Register ALL tool routes always, add a pre-processing guard.**
 
-In `tool-factory.ts`, before calling `config.process()`, check feature installation status:
+In `tool-factory.ts`, after settings validation (around line 198) and before calling `config.process()`, check feature installation status. The response follows the existing `{ error, details }` shape used by `formatZodErrors` (`apps/api/src/lib/errors.ts`) and consumed by `parseApiError` (`apps/web/src/lib/api.ts`):
 
 ```typescript
 if (isAiTool(config.toolId) && !isFeatureInstalled(config.toolId)) {
@@ -209,11 +209,14 @@ if (isAiTool(config.toolId) && !isFeatureInstalled(config.toolId)) {
 }
 ```
 
-This also applies to `restore-photo.ts` (which uses its own route handler, not the factory) and the pipeline pre-validation in `pipeline.ts`.
+This also applies to:
+- `restore-photo.ts` (uses its own route handler, not the factory)
+- `batch.ts` — the `getToolConfig(toolId)` call at line 35 is the gating point. Add a feature-installed check alongside the existing 404 check.
+- `pipeline.ts` — the pre-validation loops (lines 143-172 for execute, lines 441-462 for batch) already validate all tool IDs before processing starts. Extend to also check feature installation.
 
-**For batch processing:** If a batch job targets an uninstalled tool, return 501 before processing starts (same as the route guard). Don't silently skip files.
+**Frontend error detection:** Extend `parseApiError` in `apps/web/src/lib/api.ts` to detect the `FEATURE_NOT_INSTALLED` code and return structured data (bundle id, name, size) instead of a plain error string. This enables `use-tool-processor.ts` and `use-pipeline-processor.ts` (both already use `parseApiError`) to trigger the install prompt rather than showing a generic error.
 
-**For pipelines:** The pipeline pre-validation loop already checks tool availability. Extend it to also check feature installation. Return a 501 with the specific bundle needed.
+The global Fastify error handler in `apps/api/src/index.ts` (lines 41-51) provides a safety net — any unhandled Python import errors will produce structured JSON rather than crashing.
 
 ### API Endpoints
 
@@ -232,7 +235,6 @@ GET  /api/v1/features
       installedVersion: "1.15.3" | null,
       estimatedSize: "500-700 MB",
       enablesTools: ["remove-background"],
-      partialTools: ["passport-photo"],
       progress: { percent: 45, stage: "Downloading models..." } | null,
       error: "pip install failed: ..." | null,
       dependencies: [] | ["upscale-enhance"]
@@ -366,11 +368,16 @@ This check runs at startup, not blocking the HTTP server. AI features show "Upda
 
 ### Testing Strategy
 
-- **Unit tests:** Feature manifest parsing, version comparison logic, bundle dependency resolution
-- **Integration tests:** Install/uninstall API endpoints, status reporting, SSE progress
-- **E2E tests:** Admin enables a feature from settings, tool page transitions from "not installed" to working
-- **Docker build test:** Verify base image builds without ML packages, verify feature-manifest.json is present
-- **Install script test:** Run install script in a clean container, verify packages and models are correctly installed
+All testing runs against Docker containers using the existing `playwright.docker.config.ts` and `tests/e2e-docker/` infrastructure:
+
+- **Unit tests:** Feature manifest parsing, version comparison logic, bundle dependency resolution (Vitest, excluded from e2e via `vitest.config.ts`)
+- **Integration tests:** Install/uninstall API endpoints, status reporting, SSE progress (Vitest integration suite)
+- **E2e-docker tests:** Add to `tests/e2e-docker/` alongside existing `fixes-verification.spec.ts`:
+  - Verify uninstalled AI tool returns 501 with `FEATURE_NOT_INSTALLED` code
+  - Admin enables a feature from settings, tool page transitions from "not installed" to working
+  - Non-admin sees "not enabled" message on uninstalled tool page
+  - Feature install/uninstall round-trip
+- **Docker build test:** Verify base image builds without ML packages, verify feature-manifest.json is present (CI, `SKIP_MODEL_DOWNLOADS` already exists)
 
 ### Migration Path
 
@@ -390,8 +397,8 @@ The frontend needs to know which tools are installed for three purposes: tool gr
 **Features store** (`apps/web/src/stores/features-store.ts`):
 - Zustand store fetched on app load (like `settings-store.ts`)
 - Calls `GET /api/v1/features` to get bundle statuses
-- Provides a derived mapping: `toolInstallStatus: Record<string, "installed" | "not_installed" | "installing" | "partial">` where "partial" means some but not all required bundles are installed (e.g., passport-photo with only Background Removal but not Face Detection)
-- Provides `isToolInstalled(toolId): boolean` and `getBundlesForTool(toolId): BundleInfo[]` helpers
+- Provides a derived mapping: `toolInstallStatus: Record<string, "installed" | "not_installed" | "installing">` (each tool maps to exactly one bundle, no partial states)
+- Provides `isToolInstalled(toolId): boolean` and `getBundleForTool(toolId): BundleInfo | null` helpers
 - Refreshes on install/uninstall completion
 
 **Tool grid integration:**
