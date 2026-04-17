@@ -53,6 +53,24 @@ Notes:
 - `ocr` fast tier works without any bundle (uses Tesseract, pre-installed in base)
 - Advanced Noise Removal depends on the Upscale & Face Enhance bundle (shared PyTorch dependency)
 
+### Multi-Bundle Tools and Graceful Degradation
+
+Some tools span multiple bundles. The Python scripts already have per-stage try/except patterns. We extend this:
+
+**`restore-photo`** uses stages from 3 bundles:
+- Scratch removal (LaMa) → Object Eraser & Colorize bundle
+- Face enhancement (CodeFormer) → Upscale & Face Enhance bundle
+- Colorization (DDColor) → Object Eraser & Colorize bundle
+- Denoising (NLMeans) → no bundle needed (OpenCV)
+
+The tool should work with ANY subset of bundles installed. If only Object Eraser & Colorize is installed, scratch removal and colorization work; face enhancement is silently skipped. The restore-photo Python script already has per-stage try/except with "stage skipped" messages — we leverage this.
+
+The tool page shows which optional bundles are missing: "Install Upscale & Face Enhance for face restoration capabilities."
+
+**`passport-photo`** requires BOTH Background Removal AND Face Detection. It cannot function without either. The tool page shows which bundles are missing and only enables the "Process" button when both are installed.
+
+**`noise-removal`** has 4 quality tiers. Quick and balanced work with no bundles (OpenCV). Quality tier needs SCUNet (requires PyTorch from Upscale bundle). Maximum tier needs NAFNet (also requires PyTorch). The UI shows all tiers but grays out unavailable ones with "Requires Upscale & Face Enhance" hint text.
+
 ### Bundle Dependencies
 
 ```
@@ -66,13 +84,27 @@ Advanced Noise Removal ─── depends on "Upscale & Face Enhance" (for PyTorc
 
 onnxruntime is needed by both Background Removal and Object Eraser & Colorize. The install script installs it with the first bundle that needs it, and skips it for subsequent bundles.
 
+### Single Venv Strategy
+
+The current architecture uses a single venv at `/opt/venv` (set via `PYTHON_VENV_PATH`). The bridge (`bridge.ts`) constructs `${venvPath}/bin/python3` — it can only point to one interpreter. Having two venvs (base at `/opt/venv`, features at `/data/ai/venv/`) is fragile: C extensions and entry points reference their venv prefix, and `PYTHONPATH` hacks break in practice.
+
+**Solution:** Use a single venv on the persistent volume at `/data/ai/venv/`.
+
+- The Dockerfile creates `/opt/venv` with base packages (numpy, Pillow, opencv) as before
+- The entrypoint script bootstraps `/data/ai/venv/` on first run by copying `/opt/venv` into it (fast file copy, ~300 MB)
+- `PYTHON_VENV_PATH` is set to `/data/ai/venv/` so the bridge uses it
+- Feature installs add packages to this same venv
+- On container update, the entrypoint checks if base package versions changed and updates the venv accordingly (pip install from wheel cache)
+
+This gives us one venv with all packages, living on a persistent volume, bootstrapped from the image's base packages.
+
 ### Persistent Storage
 
 All AI data lives under `/data/ai/` on the existing Docker volume (no docker-compose changes):
 
 ```
 /data/ai/
-  venv/           # Python virtual environment with installed packages
+  venv/           # Single Python virtual environment (bootstrapped from /opt/venv, extended by feature installs)
   models/         # Downloaded model weight files (same structure as /opt/models/)
   pip-cache/      # Wheel cache for fast re-installs after updates
   installed.json  # Tracks installed bundles, versions, timestamps
@@ -168,14 +200,56 @@ A Python script (`packages/ai/python/install_feature.py`) handles feature instal
 
 The script must be idempotent — running it twice for the same bundle is a no-op.
 
+### Uninstall and Shared Package Strategy
+
+Bundles share Python packages (e.g., onnxruntime is needed by both Background Removal and Object Eraser & Colorize). Naively pip-uninstalling a bundle's packages could break other installed bundles.
+
+**Solution: Reference counting.** `installed.json` tracks which bundles are installed. The uninstall script:
+
+1. Removes the target bundle's model files (immediate disk savings)
+2. Computes the set of packages still needed by other installed bundles
+3. Only `pip uninstall` packages that are exclusively owned by the target bundle
+4. Updates `installed.json`
+
+For example: if Background Removal and Object Eraser are both installed, uninstalling Background Removal removes rembg models and the rembg package, but keeps onnxruntime (still needed by Object Eraser).
+
+If the reference counting proves too complex for v1, a simpler alternative: uninstall only removes model files. Orphaned pip packages remain until the user clicks "Clean up unused packages" in settings, which rebuilds the venv from scratch using only the currently-installed bundles' package lists.
+
+### Tool Route Registration for Uninstalled Features
+
+Currently `registerToolRoutes()` either registers a route or doesn't (disabled tools get 404). For uninstalled AI features, we need routes that return a structured error instead of 404.
+
+**Solution: Register ALL tool routes always, add a pre-processing guard.**
+
+In `tool-factory.ts`, before calling `config.process()`, check feature installation status:
+
+```typescript
+if (isAiTool(config.toolId) && !isFeatureInstalled(config.toolId)) {
+  const bundle = getBundleForTool(config.toolId);
+  return reply.status(501).send({
+    error: "Feature not installed",
+    code: "FEATURE_NOT_INSTALLED",
+    feature: bundle.id,
+    featureName: bundle.name,
+    estimatedSize: bundle.estimatedSize,
+  });
+}
+```
+
+This also applies to `restore-photo.ts` (which uses its own route handler, not the factory) and the pipeline pre-validation in `pipeline.ts`.
+
+**For batch processing:** If a batch job targets an uninstalled tool, return 501 before processing starts (same as the route guard). Don't silently skip files.
+
+**For pipelines:** The pipeline pre-validation loop already checks tool availability. Extend it to also check feature installation. Return a 501 with the specific bundle needed.
+
 ### API Endpoints
 
-New routes under `/api/v1/admin/features/`:
+New routes — read endpoint is public (no `/admin/` prefix), mutation endpoints are admin-only:
 
 ```
-GET  /api/v1/admin/features
+GET  /api/v1/features
   Returns: list of all bundles with install status, sizes, enabled tools
-  Auth: any authenticated user (read-only)
+  Auth: any authenticated user (read-only, needed by frontend for badges/tool page state)
   Response: {
     bundles: [{
       id: "background-removal",
@@ -335,6 +409,40 @@ The first-run experience for upgrading users:
 2. Show a one-time banner in the UI: "We've reduced the image size from 30 GB to 5 GB! AI features are now downloaded on-demand. Visit Settings → AI Features to enable the ones you need."
 3. No automatic downloads — let the admin choose what to install
 4. Old model weights at `/opt/models/` are ignored (they won't exist in the new image anyway since that layer is removed)
+
+### Frontend: Feature Status Propagation
+
+The frontend needs to know which tools are installed for three purposes: tool grid badges, tool page state, and settings panel.
+
+**Features store** (`apps/web/src/stores/features-store.ts`):
+- Zustand store fetched on app load (like `settings-store.ts`)
+- Calls `GET /api/v1/features` to get bundle statuses
+- Provides a derived mapping: `toolInstallStatus: Record<string, "installed" | "not_installed" | "installing" | "partial">` where "partial" means some but not all required bundles are installed (e.g., passport-photo with only Background Removal but not Face Detection)
+- Provides `isToolInstalled(toolId): boolean` and `getBundlesForTool(toolId): BundleInfo[]` helpers
+- Refreshes on install/uninstall completion
+
+**Tool grid integration:**
+- `ToolCard` checks `isToolInstalled(tool.id)` from the features store
+- If not installed: show a download icon badge (similar to existing "Experimental" badge)
+- The tool remains clickable (not disabled) — clicking navigates to the tool page where the install prompt appears
+- `PYTHON_SIDECAR_TOOLS` constant is used to determine which tools are AI tools (only AI tools can be "not installed")
+
+**Tool page integration:**
+- `ToolPage` component checks feature status after the tool lookup
+- If the user is admin and feature not installed: render `FeatureInstallPrompt` component instead of the normal tool UI
+- If the user is non-admin and feature not installed: render "This feature is not enabled. Contact your administrator."
+- The install prompt shows feature name, description, estimated size, and an "Enable" button
+- After clicking "Enable": show progress bar with SSE-streamed progress, auto-transition to normal tool UI on completion
+
+### Local Development
+
+The on-demand feature system is Docker-only. Local development is unaffected:
+
+- Developers continue to use `.venv` with `pip install -r requirements.txt` (or `requirements-gpu.txt`)
+- The bridge uses `PYTHON_VENV_PATH` — locally this defaults to `../../.venv` (relative to `packages/ai/src/`)
+- The feature manifest and install script are not used outside Docker
+- The `GET /api/v1/features` endpoint detects non-Docker environments (`!process.env.DOCKER`) and returns all features as "installed" — this ensures local dev sees all tools as available
+- Model path resolution still includes the local dev fallback (`~/.cache/ashim/`) as the last tier
 
 ### Scope Boundaries
 
