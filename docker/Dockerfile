@@ -164,7 +164,8 @@ RUN apt-get -o Acquire::Retries=3 update && apt-get install -y --no-install-reco
 COPY --from=caire-builder /tmp/caire /usr/local/bin/caire
 
 # Python venv - Layer 1: Base packages (rarely change, ~3 GB)
-RUN python3 -m venv /opt/venv && \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
     /opt/venv/bin/pip install \
         Pillow==11.1.0 \
@@ -172,14 +173,16 @@ RUN python3 -m venv /opt/venv && \
         opencv-python-headless==4.10.0.84
 
 # Platform-conditional ONNX runtime
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETARCH" = "amd64" ]; then \
     /opt/venv/bin/pip install onnxruntime-gpu==1.20.1 \
 ; else \
     /opt/venv/bin/pip install onnxruntime==1.20.1 \
 ; fi
 
 # Python venv - Layer 2: Tool packages (change occasionally, ~2 GB)
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETARCH" = "amd64" ]; then \
     /opt/venv/bin/pip install rembg==2.0.62 && \
     /opt/venv/bin/pip install realesrgan==0.3.0 \
         --extra-index-url https://download.pytorch.org/whl/cu126 && \
@@ -193,17 +196,20 @@ RUN if [ "$TARGETARCH" = "amd64" ]; then \
 ; fi
 
 # mediapipe 0.10.21 only has amd64 wheels; arm64 maxes out at 0.10.18
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETARCH" = "amd64" ]; then \
     /opt/venv/bin/pip install mediapipe==0.10.21 \
 ; else \
     /opt/venv/bin/pip install mediapipe==0.10.18 \
 ; fi
 
 # CodeFormer face enhancement (install with --no-deps to avoid numpy 2.x conflict)
-RUN /opt/venv/bin/pip install --no-deps codeformer-pip==0.0.4 lpips
+RUN --mount=type=cache,target=/root/.cache/pip \
+    /opt/venv/bin/pip install --no-deps codeformer-pip==0.0.4 lpips
 
 # Re-pin numpy to 1.26.4 in case any transitive dep upgraded it
-RUN /opt/venv/bin/pip install numpy==1.26.4
+RUN --mount=type=cache,target=/root/.cache/pip \
+    /opt/venv/bin/pip install numpy==1.26.4
 
 # Pin rembg model storage to a fixed path so models downloaded at build time
 # (as root) are found at runtime (as the non-root ashim user, home=/app).

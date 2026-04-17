@@ -638,21 +638,52 @@ def smoke_test():
 
 
 def main():
-    print("Pre-downloading all ML models...\n")
-    download_lama_model()
-    download_rembg_models()
-    download_realesrgan_model()
-    download_gfpgan_model()
-    download_codeformer_model()
-    download_ddcolor_model()
-    download_codeformer_onnx_model()
-    download_paddleocr_models()
-    download_paddleocr_vl_model()
-    download_scunet_model()
-    download_nafnet_model()
-    download_facexlib_models()
-    download_opencv_colorize_models()
-    download_mediapipe_task_models()
+    import concurrent.futures
+    import threading
+
+    print("Pre-downloading all ML models (parallel)...\n")
+    print_lock = threading.Lock()
+
+    # All download functions are independent (separate dirs, separate CDNs).
+    # Run them in parallel to cut download time from ~30 min to ~5-10 min.
+    download_fns = [
+        download_lama_model,
+        download_rembg_models,
+        download_realesrgan_model,
+        download_gfpgan_model,
+        download_codeformer_model,
+        download_ddcolor_model,
+        download_codeformer_onnx_model,
+        download_paddleocr_models,
+        download_paddleocr_vl_model,
+        download_scunet_model,
+        download_nafnet_model,
+        download_facexlib_models,
+        download_opencv_colorize_models,
+        download_mediapipe_task_models,
+    ]
+
+    # 6 workers balances parallelism with CDN rate limits
+    errors = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        future_to_name = {
+            pool.submit(fn): fn.__name__ for fn in download_fns
+        }
+        for future in concurrent.futures.as_completed(future_to_name):
+            name = future_to_name[future]
+            try:
+                future.result()
+            except Exception as e:
+                errors.append((name, e))
+                print(f"\n*** {name} FAILED: {e}\n")
+
+    if errors:
+        print(f"\n{len(errors)} download(s) failed:")
+        for name, e in errors:
+            print(f"  {name}: {e}")
+        sys.exit(1)
+
+    print("\nAll downloads complete. Running verification...\n")
     verify_mediapipe()
     smoke_test()
     print("All models downloaded and verified.")
