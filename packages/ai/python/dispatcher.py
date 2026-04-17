@@ -17,6 +17,33 @@ import os
 import traceback
 
 
+INSTALLED_PATH = os.path.join(os.environ.get("DATA_DIR", "/data"), "ai", "installed.json")
+MODELS_DIR = os.path.join(os.environ.get("DATA_DIR", "/data"), "ai", "models")
+
+TOOL_BUNDLE_MAP = {
+    "remove_bg": "background-removal",
+    "detect_faces": "face-detection",
+    "face_landmarks": "face-detection",
+    "red_eye_removal": "face-detection",
+    "inpaint": "object-eraser-colorize",
+    "colorize": "object-eraser-colorize",
+    "upscale": "upscale-enhance",
+    "enhance_faces": "upscale-enhance",
+    "noise_removal": "upscale-enhance",
+    "restore": "photo-restoration",
+    "ocr": "ocr",
+}
+
+
+def _get_installed_bundles():
+    try:
+        with open(INSTALLED_PATH) as f:
+            data = json.load(f)
+            return set(data.get("bundles", {}).keys())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return set()
+
+
 def emit_progress(percent, stage):
     """Emit structured progress to stderr."""
     print(json.dumps({"progress": percent, "stage": stage}), file=sys.stderr, flush=True)
@@ -44,6 +71,10 @@ _try_import("gpu", lambda: __import__("gpu"))
 # Heavy ML libraries - import but don't fail if unavailable
 _try_import("rembg", lambda: __import__("rembg"))
 
+# Point rembg at the bundled model directory if it exists
+if os.path.isdir(MODELS_DIR):
+    os.environ.setdefault("U2NET_HOME", os.path.join(MODELS_DIR, "rembg"))
+
 
 # ── Script handlers ─────────────────────────────────────────────────
 # Each handler sets sys.argv and calls the script's main() function,
@@ -58,6 +89,18 @@ def _run_script_main(script_name, args):
     (os.dup2), we use a pipe at the fd level rather than StringIO.
     """
     script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # ── Feature gate: reject scripts whose bundle is not installed ──
+    bundle_id = TOOL_BUNDLE_MAP.get(script_name)
+    if bundle_id:
+        installed = _get_installed_bundles()
+        if bundle_id not in installed:
+            return (json.dumps({
+                "success": False,
+                "error": "feature_not_installed",
+                "feature": bundle_id,
+                "message": f"Feature bundle '{bundle_id}' is not installed"
+            }), 1)
 
     # Save original state
     old_argv = sys.argv
