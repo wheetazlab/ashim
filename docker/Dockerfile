@@ -110,6 +110,10 @@ RUN set -e; \
 FROM node:22-bookworm AS base-linux-arm64
 FROM nvidia/cuda:12.6.3-runtime-ubuntu24.04 AS base-linux-amd64
 
+# Node.js donor: provides Node binaries for the CUDA amd64 image without
+# relying on NodeSource apt repos or Ubuntu mirrors (which are flaky on CI).
+FROM node:22-bookworm AS node-bins
+
 # ============================================
 # Stage 4: Production runtime
 # ============================================
@@ -125,28 +129,21 @@ ARG SKIP_MODEL_DOWNLOADS=false
 # binary without downloading it on each container start.
 ENV COREPACK_HOME=/usr/local/share/corepack
 
-# Install Node.js on amd64 (CUDA base has no Node; arm64 base already has it)
-# The CUDA base uses Ubuntu mirrors that can be flaky on CI runners.
-# Retry with exponential backoff and fall back to archive.ubuntu.com.
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
-    for i in 1 2 3; do apt-get -o Acquire::Retries=3 update && break || sleep $((i * 15)); done && \
-    apt-get install -y --no-install-recommends \
-        curl ca-certificates gnupg && \
-    mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | \
-        gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > \
-        /etc/apt/sources.list.d/nodesource.list && \
-    for i in 1 2 3; do apt-get -o Acquire::Retries=3 update && break || sleep $((i * 15)); done && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/* \
-; fi
+# Install Node.js on amd64 by copying from the official node image.
+# This avoids flaky Ubuntu/NodeSource apt mirrors that frequently fail on CI.
+COPY --from=node-bins /usr/local/bin/node /usr/local/bin/
+COPY --from=node-bins /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack && \
+    ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && \
+    ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 
 RUN corepack enable && corepack prepare pnpm@9.15.4 --activate && \
     chmod -R a+rX /usr/local/share/corepack
 
 # System dependencies (all platforms)
-RUN apt-get -o Acquire::Retries=3 update && apt-get install -y --no-install-recommends \
+# Retry apt-get update with backoff — Ubuntu mirrors can be flaky on CI runners
+RUN for i in 1 2 3; do apt-get -o Acquire::Retries=3 update && break || sleep $((i * 15)); done && \
+    apt-get install -y --no-install-recommends \
     tini \
     imagemagick \
     libraw-dev \
