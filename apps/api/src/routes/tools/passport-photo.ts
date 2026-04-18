@@ -2,12 +2,13 @@ import { randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { detectFaceLandmarks, removeBackground } from "@ashim/ai";
-import { PASSPORT_SPECS, PRINT_LAYOUTS } from "@ashim/shared";
+import { getBundleForTool, PASSPORT_SPECS, PRINT_LAYOUTS, TOOL_BUNDLE_MAP } from "@ashim/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import sharp from "sharp";
 import { z } from "zod";
 import { autoOrient } from "../../lib/auto-orient.js";
 import { formatZodErrors } from "../../lib/errors.js";
+import { isToolInstalled } from "../../lib/feature-status.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { decodeHeic } from "../../lib/heic-converter.js";
 import { createWorkspace, getWorkspacePath } from "../../lib/workspace.js";
@@ -124,6 +125,18 @@ export function registerPassportPhoto(app: FastifyInstance) {
   app.post(
     "/api/v1/tools/passport-photo/analyze",
     async (request: FastifyRequest, reply: FastifyReply) => {
+      const toolId = "passport-photo";
+      if (!isToolInstalled(toolId)) {
+        const bundle = getBundleForTool(toolId);
+        return reply.status(501).send({
+          error: "Feature not installed",
+          code: "FEATURE_NOT_INSTALLED",
+          feature: TOOL_BUNDLE_MAP[toolId],
+          featureName: bundle?.name ?? toolId,
+          estimatedSize: bundle?.estimatedSize ?? "unknown",
+        });
+      }
+
       let fileBuffer: Buffer | null = null;
       let filename = "image";
       let clientJobId: string | null = null;

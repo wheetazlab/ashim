@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { removeRedEye } from "@ashim/ai";
+import { getBundleForTool, TOOL_BUNDLE_MAP } from "@ashim/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { autoOrient } from "../../lib/auto-orient.js";
+import { isToolInstalled } from "../../lib/feature-status.js";
 import { validateImageBuffer } from "../../lib/file-validation.js";
 import { createWorkspace } from "../../lib/workspace.js";
 import { updateSingleFileProgress } from "../progress.js";
@@ -15,6 +17,18 @@ export function registerRedEyeRemoval(app: FastifyInstance) {
   app.post(
     "/api/v1/tools/red-eye-removal",
     async (request: FastifyRequest, reply: FastifyReply) => {
+      const toolId = "red-eye-removal";
+      if (!isToolInstalled(toolId)) {
+        const bundle = getBundleForTool(toolId);
+        return reply.status(501).send({
+          error: "Feature not installed",
+          code: "FEATURE_NOT_INSTALLED",
+          feature: TOOL_BUNDLE_MAP[toolId],
+          featureName: bundle?.name ?? toolId,
+          estimatedSize: bundle?.estimatedSize ?? "unknown",
+        });
+      }
+
       let fileBuffer: Buffer | null = null;
       let filename = "image";
       let settingsRaw: string | null = null;
